@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import type { Connection, EdgeChange, NodeChange } from '@xyflow/react';
 import type { WorkflowGraphController } from './use-workflow-graph';
@@ -15,6 +15,8 @@ const captured: {
     onNodeDoubleClick?: (e: unknown, node: { id: string }) => void;
     onNodeContextMenu?: (e: { preventDefault: () => void; clientX: number; clientY: number }, node: { id: string }) => void;
     onEdgeContextMenu?: (e: { preventDefault: () => void; clientX: number; clientY: number }, edge: { id: string }) => void;
+    fitView?: ReturnType<typeof vi.fn>;
+    nodesInitialized?: boolean;
 } = {};
 
 vi.mock('@xyflow/react', () => ({
@@ -53,7 +55,8 @@ vi.mock('@xyflow/react', () => ({
     Handle: () => <div />,
     Position: { Left: 'left', Right: 'right', Top: 'top', Bottom: 'bottom' },
     applyNodeChanges: (_changes: NodeChange[], nodes: unknown[]) => nodes,
-    useReactFlow: () => ({ fitView: vi.fn() }),
+    useReactFlow: () => ({ fitView: captured.fitView ?? vi.fn() }),
+    useNodesInitialized: () => captured.nodesInitialized ?? true,
 }));
 
 import { WorkflowCanvas } from './workflow-canvas';
@@ -84,6 +87,24 @@ function controllerStub(overrides: Partial<WorkflowGraphController> = {}): Workf
 }
 
 describe('WorkflowCanvas', () => {
+    beforeEach(() => {
+        captured.fitView = undefined;
+        captured.nodesInitialized = undefined;
+    });
+
+    it('fits the view once nodes are initialized', () => {
+        captured.fitView = vi.fn();
+        render(<WorkflowCanvas controller={controllerStub()} onEditNode={vi.fn()} onContextMenu={vi.fn()} colorMode="light" />);
+        expect(captured.fitView).toHaveBeenCalled();
+    });
+
+    it('does not fit while nodes are not yet initialized', () => {
+        captured.fitView = vi.fn();
+        captured.nodesInitialized = false;
+        render(<WorkflowCanvas controller={controllerStub()} onEditNode={vi.fn()} onContextMenu={vi.fn()} colorMode="light" />);
+        expect(captured.fitView).not.toHaveBeenCalled();
+    });
+
     it('projects the controller graph into React Flow nodes and edges', () => {
         render(<WorkflowCanvas controller={controllerStub()} onEditNode={vi.fn()} onContextMenu={vi.fn()} colorMode="light" />);
         const rf = screen.getByTestId('react-flow');
@@ -165,6 +186,7 @@ describe('WorkflowCanvas', () => {
         expect(onContextMenu).toHaveBeenCalledWith({ kind: 'edge', id: 'a->b', x: 5, y: 6 });
     });
 });
+
 
 
 

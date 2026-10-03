@@ -5,6 +5,7 @@ import {
     Controls,
     MiniMap,
     useReactFlow,
+    useNodesInitialized,
     type Connection,
     type EdgeChange,
     type IsValidConnection,
@@ -54,13 +55,20 @@ export function WorkflowCanvas({ controller, onEditNode, onContextMenu, colorMod
     const { nodes, onNodesChange } = useFlowNodes(controller, colorMode);
     const edges = useMemo(() => toFlowEdges(controller.graph), [controller.graph]);
     const { fitView } = useReactFlow();
+    const nodesInitialized = useNodesInitialized();
 
-    // Fit the viewport to the whole graph whenever a layout pass runs (load, structural
-    // change, re-layout) so the flow is fully visible without manual zoom/pan. Keyed on
-    // the controller's fitSignal, which bumps only on layout - not on a plain drag.
+    // Fit the viewport to the whole graph after a layout pass (load, structural change,
+    // re-layout) - but only once React Flow has MEASURED the nodes (nodesInitialized),
+    // otherwise the first-load fit races the async layout and frames stale dimensions.
+    // Keyed on fitSignal (which bumps only on layout, not on a plain drag); fitting is
+    // idempotent, so no extra guard is needed.
     useEffect(() => {
-        void fitView({ padding: 0.2 });
-    }, [controller.fitSignal, fitView]);
+        if (nodesInitialized) {
+            void fitView({ padding: 0.2 });
+        }
+    }, [controller.fitSignal,
+        nodesInitialized,
+        fitView]);
 
     const onEdgesChange = useCallback(
         (changes: EdgeChange[]) => applyEdgeChangesToModel(controller, changes),
