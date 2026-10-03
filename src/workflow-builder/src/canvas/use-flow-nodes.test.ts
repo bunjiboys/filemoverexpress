@@ -23,6 +23,7 @@ function controllerStub(
     return {
         graph,
         positions,
+        fitSignal: 0,
         addNode: vi.fn(),
         deleteNode: vi.fn(),
         updateNode: vi.fn(),
@@ -144,6 +145,8 @@ describe('useFlowNodes', () => {
         expect(a?.data).toEqual({ stepType: 'Job', name: 'Renamed', colorMode: 'light' });
     });
 });
+
+
 
 
 

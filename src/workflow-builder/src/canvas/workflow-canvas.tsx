@@ -1,9 +1,10 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import {
     ReactFlow,
     Background,
     Controls,
     MiniMap,
+    useReactFlow,
     type Connection,
     type EdgeChange,
     type IsValidConnection,
@@ -14,6 +15,7 @@ import { connectionToEdge, toFlowEdges, WORKFLOW_NODE_TYPE } from './flow-mappin
 import { WorkflowNodeView } from './workflow-node';
 import { useFlowNodes } from './use-flow-nodes';
 import { applyEdgeChangesToModel } from './flow-change-handlers';
+import { panelColors } from './theme';
 import type { ColorMode } from '../app/use-color-mode';
 
 export interface ContextMenuTarget {
@@ -51,6 +53,14 @@ const DEFAULT_EDGE_OPTIONS = { style: { strokeWidth: 2 } };
 export function WorkflowCanvas({ controller, onEditNode, onContextMenu, colorMode }: WorkflowCanvasProps): React.JSX.Element {
     const { nodes, onNodesChange } = useFlowNodes(controller, colorMode);
     const edges = useMemo(() => toFlowEdges(controller.graph), [controller.graph]);
+    const { fitView } = useReactFlow();
+
+    // Fit the viewport to the whole graph whenever a layout pass runs (load, structural
+    // change, re-layout) so the flow is fully visible without manual zoom/pan. Keyed on
+    // the controller's fitSignal, which bumps only on layout - not on a plain drag.
+    useEffect(() => {
+        void fitView({ padding: 0.2 });
+    }, [controller.fitSignal, fitView]);
 
     const onEdgesChange = useCallback(
         (changes: EdgeChange[]) => applyEdgeChangesToModel(controller, changes),
@@ -89,8 +99,22 @@ export function WorkflowCanvas({ controller, onEditNode, onContextMenu, colorMod
         [onContextMenu],
     );
 
+    const colors = panelColors(colorMode);
+    const dark = colorMode === 'dark';
+    // React Flow's Controls read these CSS variables; its stylesheet defaults them to
+    // light, so override them for dark mode (otherwise the zoom buttons are white).
+    const controlVars = dark
+        ? {
+            '--xy-controls-button-background-color': colors.background,
+            '--xy-controls-button-background-color-hover': '#1b2a41',
+            '--xy-controls-button-color': colors.text,
+            '--xy-controls-button-color-hover': colors.text,
+            '--xy-controls-button-border-color': colors.border,
+        } as React.CSSProperties
+        : undefined;
+
     return (
-        <div style={{ width: '100%', height: '100%' }}>
+        <div style={{ width: '100%', height: '100%', ...controlVars }}>
             <ReactFlow
                 nodes={nodes}
                 edges={edges}
@@ -108,7 +132,12 @@ export function WorkflowCanvas({ controller, onEditNode, onContextMenu, colorMod
             >
                 <Background />
                 <Controls />
-                <MiniMap />
+                <MiniMap
+                    style={dark ? { background: colors.background } : undefined}
+                    maskColor={dark ? 'rgba(0, 0, 0, 0.6)' : undefined}
+                    nodeColor={dark ? '#1b2a41' : undefined}
+                    nodeStrokeColor={dark ? colors.border : undefined}
+                />
             </ReactFlow>
         </div>
     );

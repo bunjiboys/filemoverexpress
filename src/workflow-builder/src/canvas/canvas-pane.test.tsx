@@ -86,6 +86,7 @@ function controllerStub(overrides: Partial<WorkflowGraphController> = {}): Workf
     return {
         graph: { nodes: [{ id: 'a', type: 'Sleep', with: {}, continueOnError: false }], edges: [] },
         positions: [],
+        fitSignal: 0,
         addNode: vi.fn(),
         deleteNode: vi.fn(),
         updateNode: vi.fn(),
@@ -220,6 +221,7 @@ describe('CanvasPane', () => {
         expect(screen.queryByTestId('context-menu')).not.toBeInTheDocument();
     });
 });
+
 
 
 

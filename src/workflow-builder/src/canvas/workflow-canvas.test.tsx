@@ -53,6 +53,7 @@ vi.mock('@xyflow/react', () => ({
     Handle: () => <div />,
     Position: { Left: 'left', Right: 'right', Top: 'top', Bottom: 'bottom' },
     applyNodeChanges: (_changes: NodeChange[], nodes: unknown[]) => nodes,
+    useReactFlow: () => ({ fitView: vi.fn() }),
 }));
 
 import { WorkflowCanvas } from './workflow-canvas';
@@ -66,6 +67,7 @@ function controllerStub(overrides: Partial<WorkflowGraphController> = {}): Workf
             edges: [{ source: 'a', target: 'b' }],
         },
         positions: [{ id: 'a', x: 0, y: 0 }, { id: 'b', x: 100, y: 0 }],
+        fitSignal: 0,
         addNode: vi.fn(),
         deleteNode: vi.fn(),
         updateNode: vi.fn(),
@@ -93,6 +95,11 @@ describe('WorkflowCanvas', () => {
         render(<WorkflowCanvas controller={controllerStub()} onEditNode={vi.fn()} onContextMenu={vi.fn()} colorMode="light" />);
         expect(screen.getByTestId('rf-background')).toBeInTheDocument();
         expect(screen.getByTestId('rf-controls')).toBeInTheDocument();
+        expect(screen.getByTestId('rf-minimap')).toBeInTheDocument();
+    });
+
+    it('renders in dark mode without error (themed controls/minimap)', () => {
+        render(<WorkflowCanvas controller={controllerStub()} onEditNode={vi.fn()} onContextMenu={vi.fn()} colorMode="dark" />);
         expect(screen.getByTestId('rf-minimap')).toBeInTheDocument();
     });
 
@@ -158,6 +165,8 @@ describe('WorkflowCanvas', () => {
         expect(onContextMenu).toHaveBeenCalledWith({ kind: 'edge', id: 'a->b', x: 5, y: 6 });
     });
 });
+
+
 
 
 

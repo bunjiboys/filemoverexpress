@@ -9,6 +9,7 @@ function controllerSpy(): WorkflowGraphController {
     return {
         graph: { nodes: [], edges: [] },
         positions: [],
+        fitSignal: 0,
         addNode: vi.fn(),
         deleteNode: vi.fn(),
         updateNode: vi.fn(),
@@ -92,5 +93,6 @@ describe('applyEdgeChangesToModel', () => {
         expect(c.deleteEdge).not.toHaveBeenCalled();
     });
 });
+
 
 

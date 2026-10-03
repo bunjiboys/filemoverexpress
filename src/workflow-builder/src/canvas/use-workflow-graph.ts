@@ -25,6 +25,8 @@ export interface Point {
 export interface WorkflowGraphController {
     graph: WorkflowGraph;
     positions: PositionedNode[];
+    // Increments each time a layout pass runs, so the canvas can fit-to-view then.
+    fitSignal: number;
     addNode: (type: string) => void;
     deleteNode: (id: string) => void;
     updateNode: (id: string, patch: NodePatch) => void;
@@ -51,6 +53,10 @@ export function useWorkflowGraph(
     const [positions, setPositions] = useState<PositionedNode[]>([]);
     // Bumped by relayout() to force a fresh layout that discards manual positions.
     const [relayoutEpoch, setRelayoutEpoch] = useState(0);
+    // Bumped each time a layout pass sets positions (load, structural change,
+    // relayout), so the canvas can fit the viewport to the whole graph then - but not
+    // on a plain drag, which does not run layout.
+    const [fitSignal, setFitSignal] = useState(0);
     // Latest positions, read inside the async layout effect without making it depend
     // on (and re-run from) every drag.
     const positionsRef = useRef<PositionedNode[]>(positions);
@@ -75,6 +81,7 @@ export function useWorkflowGraph(
                 : new Map<string, PositionedNode>();
             preserveManualRef.current = true;
             setPositions(computed.map((p) => manual.get(p.id) ?? p));
+            setFitSignal((s) => s + 1);
         })();
         return () => {
             cancelled = true;
@@ -141,6 +148,7 @@ export function useWorkflowGraph(
     return {
         graph,
         positions,
+        fitSignal,
         addNode,
         deleteNode,
         updateNode,
