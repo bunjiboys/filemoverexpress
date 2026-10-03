@@ -113,7 +113,7 @@ A self-contained web project directory. No Go, no Wails files in this phase.
 ```
 src/workflow-builder/
 ├── package.json                  # react, react-dom, @xyflow/react, @cloudscape-design/{components,global-styles},
-│                                 #   elkjs (layout), monaco-editor + monaco-yaml (editor), a YAML lib, ajv (schema);
+│                                 #   elkjs (layout), ace-builds (Cloudscape CodeEditor), a YAML lib, ajv (schema);
 │                                 #   dev: vitest, @testing-library/react, @fast-check/vitest, @playwright/test
 ├── vite.config.ts
 ├── vitest.config.ts              # v8 coverage, 100% thresholds, perFile: true
@@ -127,7 +127,7 @@ src/workflow-builder/
 │   ├── app/                      # Cloudscape AppLayout shell, view-mode segmented control
 │   ├── canvas/                   # React Flow setup, custom node components, edge/cycle rules
 │   ├── layout/                   # ELK layered DAG layout, flow-direction (LR/TB)
-│   ├── editor/                   # Monaco (lazy-loaded) for Editor/Split modes, schema-aware JSON/YAML
+│   ├── editor/                   # Cloudscape CodeEditor (Ace, lazy-loaded) for Editor/Split modes, YAML/JSON
 │   ├── nodes/                    # per-type node descriptors (toStep/fromStep, ports, form schema)
 │   ├── modal/                    # schema-driven property form (double-click editor), Cloudscape controls
 │   ├── workflow/                 # parse <-> model <-> serialize, graph validation (the source of truth)
@@ -363,22 +363,37 @@ A segmented control switches the workspace between three modes, so a user can wo
 visually, work in raw text, or see both at once:
 
 - **Visual** - the node canvas only (sections 4-8). The primary mode.
-- **Editor** - a raw **Monaco** editor showing the canonical workflow document
-  (YAML, with a toggle to view/edit as JSON). The user edits the file directly.
-  Monaco is chosen for its schema-aware editing: its built-in JSON language service
-  does live validation, autocomplete, and hover **directly from the registered
-  `v1.json` schema** (the same bundled schema from section 2's contract), and
-  `monaco-yaml` brings the same schema-driven validation and completion to the YAML
-  view. This makes hand-editing
-  first-class - inline problem markers on the offending lines, driven by the same
-  schema everything else validates against (section 7), not an escape hatch that
-  bypasses validation.
+- **Editor** - the Cloudscape **CodeEditor** component (built on Ace) showing the
+  canonical workflow document (YAML, with a toggle to view/edit as JSON). The user
+  edits the file directly. CodeEditor is chosen over a hand-wrapped editor because it
+  is a Cloudscape component: it themes with the light/dark toggle automatically, has
+  `findCodeEditor` test-utils support, and keeps the app on one component library.
+
+  **CodeEditor has no built-in JSON Schema validation.** Ace only ships syntax-level
+  checkers (malformed JSON/YAML), not schema-awareness, so we implement schema
+  validation ourselves: listen on the editor's change event (`onDelayedChange`, which
+  is batched and safe for a controlled `value`), run the text through our own pipeline
+  - `textToDocument` (parse) then `validateWorkflow` (ajv against the bundled
+  `v1.json`) then the structural graph checks (sections 2, 7) - and convert the
+  resulting errors into Ace `Annotation[]` (`{row, column, text, type}`) that we hand
+  back to CodeEditor so they render as inline gutter markers. Ace's own syntax
+  annotations (via `onValidate`) can be merged in for genuine parse errors; schema
+  validity is entirely our annotations. This keeps one validation source of truth and
+  makes hand-editing first-class rather than an escape hatch that bypasses validation.
+
+  One real task this implies: mapping our validation errors to line/column. ajv
+  reports JSON-pointer `instancePath`s, not editor positions, so turning an error into
+  a `{row, column}` requires tracking source positions during parse (the `yaml`
+  library's CST / `LineCounter` gives node ranges). v1 may fall back to a
+  document-level annotation (row 0) with the message where precise mapping is not yet
+  available, then refine to exact positions.
 - **Split** - canvas and editor side by side.
 
-Monaco is heavier than a lightweight editor (it ships a web worker and a larger
-chunk), so it is **lazy-loaded** only when the user first enters Editor or Split
-mode. This keeps it off the initial static-site load; Visual mode, the default,
-never pays Monaco's cost.
+Ace loads its syntax/theme assets at runtime, so the `ace-builds` object is
+**lazy-loaded** (dynamic import) only when the user first enters Editor or Split
+mode, and passed to CodeEditor via its `ace` prop. This keeps Ace off the initial
+static-site load; Visual mode, the default, never pays its cost. CodeEditor's
+`cloud_editor` / `cloud_editor_dark` themes track the app's color mode.
 
 ### Keeping the two views in sync
 
@@ -450,8 +465,9 @@ These are hard requirements for the codebase from day one, not aspirations to re
 **The published `v1.json` JSON Schema must exist and be bundled before any other
 builder work begins.** This is a hard ordering constraint, not a preference. The
 schema is the contract everything else derives from: the node palette (which types
-exist), the property forms (which fields each type has), continuous validation, and
-the Monaco language service all consume it. Building any of those before the schema
+exist), the property forms (which fields each type has), and the continuous
+validation that drives both the per-node markers and the editor annotations all
+consume it. Building any of those before the schema
 exists means inventing a provisional shape that then has to be reconciled - exactly
 the drift the schema-driven design (section 2) is meant to prevent.
 
@@ -515,7 +531,7 @@ reusable components with the logic extracted out of them**:
   rendering anything.
 - **Components are presentational and composed**: a `NodePalette`, a `WorkflowCanvas`
   wrapping React Flow, a `PropertyModal` that renders a form from a node descriptor,
-  a `MonacoEditorPane`, a `ViewModeControl`, a `ParametersPanel`, each in its own file
+  an `EditorPane` (Cloudscape CodeEditor), a `ViewModeControl`, a `ParametersPanel`, each in its own file
   with typed props and no hidden global state.
 - **State is lifted into small hooks/stores** (for example a `useWorkflowModel` hook
   owning the single-source-of-truth model, section 10) rather than scattered through
@@ -548,14 +564,15 @@ coverage number.
 - **Honesty about 100%**: the gate is real only if nothing is quietly excluded. The
   rule is that **coverage exclusions are the exception and must be justified in code**
   - a narrow `/* v8 ignore next */` with a reason comment, not blanket `exclude` globs
-  that hollow out the number. Genuinely untestable glue (a Monaco web-worker bootstrap,
-  the `main.tsx` DOM mount) may be excluded explicitly and listed in this doc's
+  that hollow out the number. Genuinely untestable glue (the Ace lazy-load/CodeEditor
+  bootstrap, the `main.tsx` DOM mount) may be excluded explicitly and listed in this doc's
   rationale rather than silently dropped. The component architecture above is what
   keeps the honest number at 100% without heroics: pure logic is directly testable,
   and thin components have little uncovered surface.
-- React Flow and Monaco do not fully render in jsdom, so Tier 1 tests the logic
-  (descriptors, layout math, parse/validate, the model hook) directly and mocks React
-  Flow/Monaco at their module boundary. Real canvas interaction is Tier 2's job.
+- React Flow and the Ace-based CodeEditor do not fully render in jsdom, so Tier 1
+  tests the logic (descriptors, layout math, parse/validate, the model hook) directly
+  and mocks React Flow / the editor wrapper at its module boundary. Real canvas and
+  editor interaction is Tier 2's job.
 - **Cloudscape components are driven via Cloudscape's own test-utils, not raw
   Testing Library queries.** Import `createWrapper` from
   `@cloudscape-design/components/test-utils/dom` and use its component wrappers
@@ -576,9 +593,9 @@ coverage number.
   cycle-creating connection is rejected), pan/zoom, double-click to open the property
   modal and edit a field, switching Visual/Editor/Split, and verifying an Editor edit
   re-renders the canvas in Split.
-- **What it validates**: that React Flow and Monaco actually render and wire up, and
-  that a graph built on the canvas exports to a valid workflow file (and re-imports to
-  the same graph). This is behavioral correctness of the integrated app, not line
+- **What it validates**: that React Flow and the CodeEditor actually render and wire
+  up, and that a graph built on the canvas exports to a valid workflow file (and
+  re-imports to the same graph). This is behavioral correctness of the integrated app, not line
   coverage.
 - **Separate from the unit gate**: Playwright runs under its own command (for example
   `npm run e2e`) and its own CI step. Its pass/fail gates CI, but it is **not** merged
@@ -636,7 +653,7 @@ All v1 design decisions below are settled.
 - **Build order (hard constraint)**: the published `v1.json` schema must exist and be
   bundled before any other builder work. The schema is owned by the format
   (`docs/Workflow-File-Format.md`), bundled here, never re-authored divergently.
-  Everything else (palette, forms, validation, Monaco) derives from it. See section 13.
+  Everything else (palette, forms, validation, editor annotations) derives from it. See section 13.
 - **Delivery**: a standalone static web app (built SPA, no backend), not a native
   binary. Wrappable in a Wails 3 desktop shell later with no frontend change;
   that path is deferred, not designed away.
@@ -667,11 +684,11 @@ All v1 design decisions below are settled.
 - **Flow direction**: user-switchable between left-to-right and top-to-bottom, as a
   parameter to the layout engine; the choice is a `localStorage` preference, never in
   the file.
-- **View modes**: a Visual / Editor / Split segmented control. Editor mode uses a
-  lazy-loaded **Monaco** editor that validates the raw document against the bundled
-  JSON Schema (JSON natively, YAML via `monaco-yaml`); in Split mode an editor edit
-  re-renders the canvas from the reparsed model. The parsed model is the single
-  source of truth both views project from. See section 10.
+- **View modes**: a Visual / Editor / Split segmented control. Editor mode uses the
+  Cloudscape **CodeEditor** (Ace, lazy-loaded) over YAML/JSON; validation comes from
+  our own schema layer and is surfaced as Ace annotations, not Ace's native checkers.
+  In Split mode an editor edit re-renders the canvas from the reparsed model. The
+  parsed model is the single source of truth both views project from. See section 10.
 - **Component library**: AWS Cloudscape (`@cloudscape-design/components`) for all app
   chrome - layout, panels, segmented control, modal, forms, table - to minimize UI
   code. Cloudscape frames the app; React Flow renders the canvas inside it. See
@@ -769,9 +786,9 @@ UI, cheapest-first:
    canvas.
 7. **Cloudscape app shell + view-mode control** (`app/`): AppLayout, the
    Visual/Editor/Split segmented control, panels. Thin composition.
-8. **Monaco editor pane** (`editor/`), lazy-loaded: register the bundled schema,
-   wire the model<->text sync. After the shell; lower priority than the canvas since
-   Visual is the primary mode.
+8. **Editor pane** (`editor/`): Cloudscape CodeEditor (Ace, lazy-loaded) over
+   YAML/JSON, with the model<->text sync and schema-driven annotations. After the
+   shell; lower priority than the canvas since Visual is the primary mode.
 9. **React Flow canvas** (`canvas/`): drag, port-to-port wiring, cycle prevention at
    draw time, selection. Last of the build - it consumes descriptors, the graph
    model, the layout engine and the modal, and it is the piece gated on Playwright

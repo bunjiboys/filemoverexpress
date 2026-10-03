@@ -19,10 +19,9 @@
         "@cloudscape-design/components": "3.0.1391",
         "@cloudscape-design/global-styles": "1.0.71",
         "@xyflow/react": "12.12.0",
+        "ace-builds": "1.44.0",
         "ajv": "8.20.0",
         "elkjs": "0.12.0",
-        "monaco-editor": "0.57.0",
-        "monaco-yaml": "5.5.1",
         "react": "19.3.0",
         "react-dom": "19.3.0",
         "yaml": "2.9.1"

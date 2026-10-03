@@ -22,6 +22,7 @@ export default defineConfig({
                 // exclusion is deliberate and justified here, per section 13's
                 // "honesty about 100%" rule - never a blanket catch-all.
                 'src/main.tsx', // DOM mount bootstrap
+                'src/editor/lazy-code-editor.tsx', // Cloudscape CodeEditor + Ace glue; always mocked, un-runnable in jsdom
                 'src/**/*.d.ts',
                 'src/test/**', // test setup/helpers
             ],
