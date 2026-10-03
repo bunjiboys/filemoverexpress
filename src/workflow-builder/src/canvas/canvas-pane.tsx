@@ -76,9 +76,6 @@ export function CanvasPane({ controller, colorMode }: CanvasPaneProps): React.JS
                     <Button data-testid="relayout" iconName="refresh" onClick={controller.relayout}>
                         Re-layout
                     </Button>
-                    <Box variant="small" color="text-body-secondary">
-                        Double-click a node to edit, or right-click a node or wire for more actions.
-                    </Box>
                 </SpaceBetween>
             </Box>
             <div style={{ flex: 1, border: '1px solid #8c8c94', borderRadius: 8, minHeight: 0 }}>
