@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AppLayout from '@cloudscape-design/components/app-layout';
 import ContentLayout from '@cloudscape-design/components/content-layout';
 import Header from '@cloudscape-design/components/header';
@@ -11,9 +11,20 @@ import { EditorPane } from './editor/editor-pane';
 import { validateText } from './editor/validate-text';
 import { convertText } from './editor/convert-text';
 import { type EditorFormat } from './editor/editor-text';
-import { API_VERSION, KIND } from './workflow/graph';
+import { CanvasPane } from './canvas/canvas-pane';
+import { useWorkflowGraph } from './canvas/use-workflow-graph';
+import { graphToText, textToGraph } from './app/model-text-sync';
+import { API_VERSION, KIND, type WorkflowGraph } from './workflow/graph';
 
-// A minimal starting document so the editor opens with something valid to edit.
+// A minimal starting document so both views open with something valid. The literal
+// graph and its serialized text are the SAME document in two forms, kept adjacent so
+// they cannot drift; building the graph as a literal (rather than parsing the text)
+// avoids an unreachable parse-failure branch at module load.
+const INITIAL_GRAPH: WorkflowGraph = {
+    nodes: [{ id: 'step-1', type: 'Sleep', with: { duration: '30s' }, continueOnError: false }],
+    edges: [],
+};
+
 const INITIAL_TEXT = [
     `apiVersion: ${API_VERSION}`,
     `kind: ${KIND}`,
@@ -26,15 +37,58 @@ const INITIAL_TEXT = [
     '',
 ].join('\n');
 
-// Thin composition root (docs section 13): it owns the view-mode, color-mode, and
-// editor document state and lays out the Cloudscape shell. Parsing, validation and
-// layout live in their own modules; App only wires them together. The canvas pane is
-// still a placeholder until step 9.
+// Thin composition root (docs section 13): it owns the single-source-of-truth graph
+// (via useWorkflowGraph), the editor document text, and the view/color modes, and
+// lays out the Cloudscape shell. The canvas and editor are both projections of the
+// one graph model (docs section 10): a canvas edit re-serializes to editor text, and
+// an editor edit that parses+validates updates the model (which the canvas re-renders
+// from). An origin ref breaks the sync loop so a keystroke is not clobbered by its own
+// re-serialization.
 export function App(): React.JSX.Element {
     const view = useViewMode();
     const color = useColorMode();
+    const controller = useWorkflowGraph(INITIAL_GRAPH);
     const [text, setText] = useState(INITIAL_TEXT);
     const [format, setFormat] = useState<EditorFormat>('yaml');
+    // Which view produced the pending model/text change, so each sync direction only
+    // reacts to the OTHER view's edits and the loop terminates.
+    const lastEdit = useRef<'canvas' | 'editor'>('canvas');
+
+    // Canvas -> editor: when the model changes from a canvas edit, re-derive the
+    // canonical editor text. Skipped for editor-origin changes so the user's in-flight
+    // text (and cursor) is not overwritten by its own round-trip.
+    useEffect(() => {
+        if (lastEdit.current === 'editor') {
+            return;
+        }
+        setText(graphToText(controller.graph, format));
+    }, [controller.graph, format]);
+
+    // Editor -> canvas: hold the typed text locally and, when it parses+validates,
+    // push the new model into the controller. A mid-edit that does not validate leaves
+    // the model as-is; the editor still shows the per-error annotations below.
+    const onChangeText = useCallback((next: string) => {
+        lastEdit.current = 'editor';
+        setText(next);
+        const graph = textToGraph(next, format);
+        if (graph !== undefined) {
+            controller.setGraph(graph);
+        }
+    }, [controller, format]);
+
+    // Any node add/delete on the canvas marks the next model change as canvas-origin
+    // so it flows back out to the editor text; the rest pass through unchanged.
+    const canvasController = useMemo(() => ({
+        ...controller,
+        addNode: (type: string) => {
+            lastEdit.current = 'canvas';
+            controller.addNode(type);
+        },
+        deleteNode: (id: string) => {
+            lastEdit.current = 'canvas';
+            controller.deleteNode(id);
+        },
+    }), [controller]);
 
     // Schema + graph validation of the current text, surfaced as editor annotations.
     const annotations = useMemo(() => validateText(text, format), [text, format]);
@@ -43,6 +97,7 @@ export function App(): React.JSX.Element {
     // (parse-then-reserialize) so the document moves with the format instead of being
     // reinterpreted as the new syntax, which would raise spurious validation errors.
     const changeFormat = useCallback((next: EditorFormat) => {
+        lastEdit.current = 'editor';
         setText((current) => convertText(current, format, next));
         setFormat(next);
     }, [format]);
@@ -69,7 +124,9 @@ export function App(): React.JSX.Element {
                 >
                     <div style={{ display: 'flex', gap: 16 }}>
                         {view.showCanvas && (
-                            <div data-testid="canvas-pane">Canvas</div>
+                            <div data-testid="canvas-pane" style={{ flex: 1 }}>
+                                <CanvasPane controller={canvasController} />
+                            </div>
                         )}
                         {view.showEditor && (
                             <div data-testid="editor-pane" style={{ flex: 1 }}>
@@ -78,7 +135,7 @@ export function App(): React.JSX.Element {
                                     format={format}
                                     annotations={annotations}
                                     colorMode={color.mode}
-                                    onChangeText={setText}
+                                    onChangeText={onChangeText}
                                     onChangeFormat={changeFormat}
                                 />
                             </div>
