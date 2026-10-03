@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import type { Connection, EdgeChange, NodeChange } from '@xyflow/react';
 import type { WorkflowGraphController } from './use-workflow-graph';
 
@@ -123,29 +123,6 @@ describe('WorkflowCanvas', () => {
         captured.isValidConnection!({ source: 'a', target: null, sourceHandle: null, targetHandle: null } as never);
         expect(controller.connect).not.toHaveBeenCalled();
         expect(controller.isValidConnection).not.toHaveBeenCalled();
-    });
-
-    it('adds a node when a palette item is dropped on the canvas', () => {
-        const controller = controllerStub();
-        render(<WorkflowCanvas controller={controller} onEditNode={vi.fn()} />);
-        const getData = vi.fn().mockReturnValue('Job');
-        fireEvent.drop(screen.getByTestId('react-flow'), { dataTransfer: { getData } });
-        expect(controller.addNode).toHaveBeenCalledWith('Job');
-    });
-
-    it('ignores a drop that carries no known step type', () => {
-        const controller = controllerStub();
-        render(<WorkflowCanvas controller={controller} onEditNode={vi.fn()} />);
-        const getData = vi.fn().mockReturnValue('');
-        fireEvent.drop(screen.getByTestId('react-flow'), { dataTransfer: { getData } });
-        expect(controller.addNode).not.toHaveBeenCalled();
-    });
-
-    it('accepts dragover so the canvas is a valid drop target', () => {
-        render(<WorkflowCanvas controller={controllerStub()} onEditNode={vi.fn()} />);
-        // fireEvent.dragOver returns false when a listener called preventDefault.
-        const notPrevented = fireEvent.dragOver(screen.getByTestId('react-flow'));
-        expect(notPrevented).toBe(false);
     });
 
     it('opens the editor for a double-clicked node', () => {

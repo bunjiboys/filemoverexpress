@@ -14,7 +14,6 @@ import { connectionToEdge, toFlowEdges, WORKFLOW_NODE_TYPE } from './flow-mappin
 import { WorkflowNodeView } from './workflow-node';
 import { useFlowNodes } from './use-flow-nodes';
 import { applyEdgeChangesToModel } from './flow-change-handlers';
-import { readDroppedStepType } from './drop';
 
 export interface WorkflowCanvasProps {
     controller: WorkflowGraphController;
@@ -28,10 +27,10 @@ const NODE_TYPES: NodeTypes = { [WORKFLOW_NODE_TYPE]: WorkflowNodeView };
 // The Visual-mode canvas (docs sections 4, 5, 8): a thin wrapper over React Flow that
 // projects the single-source-of-truth graph (via the controller) into nodes/edges,
 // routes React Flow's change/connect callbacks back into model mutations, forbids a
-// cycle-creating connection at draw time (isValidConnection), and accepts a palette
-// drop to add a node. Node view state is controlled through useFlowNodes so React Flow
-// can initialize and drag nodes; the real logic lives in the pure modules it composes
-// (flow-mapping, flow-change-handlers, use-flow-nodes, drop, cycle).
+// cycle-creating connection at draw time (isValidConnection), and opens the property
+// editor on a node double-click. Node view state is controlled through useFlowNodes so
+// React Flow can initialize and drag nodes; the real logic lives in the pure modules
+// it composes (flow-mapping, flow-change-handlers, use-flow-nodes, cycle).
 export function WorkflowCanvas({ controller, onEditNode }: WorkflowCanvasProps): React.JSX.Element {
     const { nodes, onNodesChange } = useFlowNodes(controller);
     const edges = useMemo(() => toFlowEdges(controller.graph), [controller.graph]);
@@ -51,24 +50,13 @@ export function WorkflowCanvas({ controller, onEditNode }: WorkflowCanvasProps):
         return edge !== undefined && controller.isValidConnection(edge);
     }, [controller]);
 
-    const onDrop = useCallback((event: React.DragEvent) => {
-        event.preventDefault();
-        const type = readDroppedStepType(event.dataTransfer);
-        if (type !== undefined) {
-            controller.addNode(type);
-        }
-    }, [controller]);
-    const onDragOver = useCallback((event: React.DragEvent) => {
-        event.preventDefault();
-    }, []);
-
     const onNodeDoubleClick = useCallback(
         (_event: React.MouseEvent, node: { id: string }) => onEditNode(node.id),
         [onEditNode],
     );
 
     return (
-        <div style={{ width: '100%', height: '100%' }} onDrop={onDrop} onDragOver={onDragOver}>
+        <div style={{ width: '100%', height: '100%' }}>
             <ReactFlow
                 nodes={nodes}
                 edges={edges}

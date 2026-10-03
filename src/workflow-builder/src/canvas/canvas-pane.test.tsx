@@ -5,14 +5,14 @@ import type { WorkflowGraphController } from './use-workflow-graph';
 import type { WorkflowNode } from '../nodes/descriptor';
 import type { NodePatch } from './graph-mutations';
 
-// The pane composes the palette, the canvas, the layout toolbar and the property
-// modal; mock the heavy children (palette and canvas already unit-tested; canvas wraps
+// The pane composes the add-step menu, the canvas, the layout toolbar and the property
+// modal; mock the heavy children (menu and canvas already unit-tested; canvas wraps
 // un-renderable React Flow) and ReactFlowProvider at the module boundary. The canvas
 // mock exposes an edit trigger so the modal open path is reachable. The property modal
 // is mocked to a thin harness that surfaces its node and fires save/delete/dismiss.
-vi.mock('./node-palette', () => ({
-    NodePalette: ({ onAdd }: { onAdd: (t: string) => void }) => (
-        <button type="button" data-testid="palette" onClick={() => onAdd('Job')}>palette</button>
+vi.mock('./add-step-menu', () => ({
+    AddStepMenu: ({ onAdd }: { onAdd: (t: string) => void }) => (
+        <button type="button" data-testid="palette" onClick={() => onAdd('Job')}>add step</button>
     ),
 }));
 vi.mock('./workflow-canvas', () => ({
