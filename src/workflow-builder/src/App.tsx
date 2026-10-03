@@ -3,6 +3,8 @@ import AppLayout from '@cloudscape-design/components/app-layout';
 import ContentLayout from '@cloudscape-design/components/content-layout';
 import Header from '@cloudscape-design/components/header';
 import SpaceBetween from '@cloudscape-design/components/space-between';
+import Button from '@cloudscape-design/components/button';
+import Flashbar, { type FlashbarProps } from '@cloudscape-design/components/flashbar';
 import { useViewMode } from './app/use-view-mode';
 import { ViewModeControl } from './app/view-mode-control';
 import { useColorMode } from './app/use-color-mode';
@@ -15,6 +17,9 @@ import { CanvasPane } from './canvas/canvas-pane';
 import { SplitLayout } from './app/split-layout';
 import { useWorkflowGraph } from './canvas/use-workflow-graph';
 import { graphToText, textToGraph } from './app/model-text-sync';
+import { browserFileAccess, type OpenedFile } from './io/file-access';
+import { importWorkflow, exportWorkflow } from './io/io-actions';
+import { useFileDrop } from './io/use-file-drop';
 import { API_VERSION, KIND, type WorkflowGraph } from './workflow/graph';
 
 // A minimal starting document so both views open with something valid. The literal
@@ -106,6 +111,44 @@ export function App(): React.JSX.Element {
         setFormat(next);
     }, [format]);
 
+    // Import/export (docs sections 6, 9). A flash reports a bad import; a successful
+    // import replaces the model and seeds both views from the imported text.
+    const [flash, setFlash] = useState<FlashbarProps.MessageDefinition[]>([]);
+
+    const applyImport = useCallback((file?: OpenedFile) => {
+        void importWorkflow(browserFileAccess, file).then((result) => {
+            if (result.status === 'cancelled') {
+                return;
+            }
+            if (result.status === 'invalid') {
+                setFlash([{
+                    type: 'error',
+                    header: 'Could not import file',
+                    content: `${result.name} is not a valid workflow document.`,
+                    dismissible: true,
+                    onDismiss: () => setFlash([]),
+                    id: 'import-error',
+                }]);
+                return;
+            }
+            // Treat an import as an editor-origin change so the canvas->editor sync does
+            // not immediately re-serialize over the imported text.
+            lastEdit.current = 'editor';
+            controller.setGraph(result.graph);
+            setText(result.text);
+            setFormat(result.format);
+            setFlash([]);
+        });
+    }, [controller]);
+
+    const onImport = useCallback(() => applyImport(), [applyImport]);
+    const onExport = useCallback(() => {
+        void exportWorkflow(browserFileAccess, controller.graph, format);
+    }, [controller, format]);
+
+    // Drop a workflow file anywhere on the window to import it.
+    useFileDrop(applyImport);
+
     // The two pane elements, built once and placed either side-by-side (resizable in
     // split mode) or alone (single-pane modes).
     const canvasPane = <CanvasPane controller={canvasController} colorMode={color.mode} />;
@@ -131,6 +174,8 @@ export function App(): React.JSX.Element {
                             variant="h1"
                             actions={
                                 <SpaceBetween direction="horizontal" size="xs">
+                                    <Button data-testid="import" iconName="upload" onClick={onImport}>Open</Button>
+                                    <Button data-testid="export" iconName="download" onClick={onExport}>Export</Button>
                                     <ViewModeControl mode={view.mode} onChange={view.setMode} />
                                     <ColorModeToggle mode={color.mode} onToggle={color.toggle} />
                                 </SpaceBetween>
@@ -140,25 +185,28 @@ export function App(): React.JSX.Element {
                         </Header>
                     }
                 >
-                    <div style={{ display: 'flex', gap: 16, height: '78vh' }}>
-                        {view.mode === 'split' ? (
-                            <SplitLayout
-                                ratio={splitRatio}
-                                onRatioChange={setSplitRatio}
-                                left={<div data-testid="canvas-pane" style={{ height: '100%' }}>{canvasPane}</div>}
-                                right={<div data-testid="editor-pane" style={{ height: '100%' }}>{editorPane}</div>}
-                            />
-                        ) : (
-                            <>
-                                {view.showCanvas && (
-                                    <div data-testid="canvas-pane" style={{ flex: 1 }}>{canvasPane}</div>
-                                )}
-                                {view.showEditor && (
-                                    <div data-testid="editor-pane" style={{ flex: 1 }}>{editorPane}</div>
-                                )}
-                            </>
-                        )}
-                    </div>
+                    <SpaceBetween size="s">
+                        {flash.length > 0 && <Flashbar items={flash} />}
+                        <div style={{ display: 'flex', gap: 16, height: '78vh' }}>
+                            {view.mode === 'split' ? (
+                                <SplitLayout
+                                    ratio={splitRatio}
+                                    onRatioChange={setSplitRatio}
+                                    left={<div data-testid="canvas-pane" style={{ height: '100%' }}>{canvasPane}</div>}
+                                    right={<div data-testid="editor-pane" style={{ height: '100%' }}>{editorPane}</div>}
+                                />
+                            ) : (
+                                <>
+                                    {view.showCanvas && (
+                                        <div data-testid="canvas-pane" style={{ flex: 1 }}>{canvasPane}</div>
+                                    )}
+                                    {view.showEditor && (
+                                        <div data-testid="editor-pane" style={{ flex: 1 }}>{editorPane}</div>
+                                    )}
+                                </>
+                            )}
+                        </div>
+                    </SpaceBetween>
                 </ContentLayout>
             }
         />

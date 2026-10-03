@@ -23,6 +23,7 @@ export default defineConfig({
                 // "honesty about 100%" rule - never a blanket catch-all.
                 'src/main.tsx', // DOM mount bootstrap
                 'src/editor/lazy-code-editor.tsx', // Cloudscape CodeEditor + Ace glue; always mocked, un-runnable in jsdom
+                'src/io/file-access.ts', // browser file-dialog + download glue; driven only through the DOM, consumed via a mock FileAccess in tests
                 'src/**/*.d.ts',
                 'src/test/**', // test setup/helpers
             ],

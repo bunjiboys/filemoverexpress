@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import createWrapper from '@cloudscape-design/components/test-utils/dom';
 import type { WorkflowGraphController } from './canvas/use-workflow-graph';
@@ -39,9 +39,25 @@ vi.mock('./canvas/canvas-pane', () => ({
     },
 }));
 
+// Control import/export at the io-actions boundary so App's Open/Export wiring is
+// what is tested, not the browser file dialog.
+const importWorkflow = vi.fn();
+const exportWorkflow = vi.fn().mockResolvedValue(undefined);
+vi.mock('./io/io-actions', () => ({
+    importWorkflow: (...args: unknown[]) => importWorkflow(...args),
+    exportWorkflow: (...args: unknown[]) => exportWorkflow(...args),
+}));
+
 import { App } from './App';
 
 describe('App', () => {
+    beforeEach(() => {
+        importWorkflow.mockReset();
+        importWorkflow.mockResolvedValue({ status: 'cancelled' });
+        exportWorkflow.mockReset();
+        exportWorkflow.mockResolvedValue(undefined);
+    });
+
     it('renders the Cloudscape app layout', () => {
         const { container } = render(<App />);
         expect(createWrapper(container).findAppLayout()).not.toBeNull();
@@ -80,10 +96,12 @@ describe('App', () => {
 
     it('offers a color-mode toggle that flips its label when clicked', () => {
         const { container } = render(<App />);
-        const button = createWrapper(container).findButton();
-        expect(button?.getElement().textContent).toMatch(/dark/i);
-        button!.click();
-        expect(createWrapper(container).findButton()?.getElement().textContent).toMatch(/light/i);
+        const colorButton = () =>
+            createWrapper(container).findAllButtons()
+                .find((b) => /dark|light/i.test(b.getElement().textContent ?? ''));
+        expect(colorButton()?.getElement().textContent).toMatch(/dark/i);
+        colorButton()!.click();
+        expect(colorButton()?.getElement().textContent).toMatch(/light/i);
     });
 
     it('re-serializes the editor text when the canvas model changes', async () => {
@@ -139,5 +157,54 @@ describe('App', () => {
         fireEvent.change(editor, { target: { value: 'kind: : : not valid : :' } });
         // The model holds its last valid state (the seeded Sleep step).
         expect(seenController?.graph.nodes.map((n) => n.type)).toEqual(['Sleep']);
+    });
+
+    it('exports the current workflow when Export is clicked', () => {
+        const { container } = render(<App />);
+        createWrapper(container).findButton('[data-testid="export"]')!.click();
+        expect(exportWorkflow).toHaveBeenCalled();
+    });
+
+    it('applies an imported workflow to the model and editor', async () => {
+        importWorkflow.mockResolvedValueOnce({
+            status: 'imported',
+            graph: { nodes: [{ id: 'imp-1', type: 'Job', with: {}, continueOnError: false }], edges: [] },
+            text: 'apiVersion: fme.dev/workflow/v1\nkind: Workflow\nspec:\n  steps: []\n',
+            format: 'yaml',
+            name: 'imported.yaml',
+        });
+        const { container } = render(<App />);
+        createWrapper(container).findButton('[data-testid="import"]')!.click();
+        await waitFor(() => expect(seenController?.graph.nodes.map((n) => n.id)).toEqual(['imp-1']));
+    });
+
+    it('shows a flash when an import is invalid', async () => {
+        importWorkflow.mockResolvedValueOnce({ status: 'invalid', name: 'bad.yaml' });
+        const { container } = render(<App />);
+        createWrapper(container).findButton('[data-testid="import"]')!.click();
+        await waitFor(() => {
+            expect(createWrapper(container).findFlashbar()).not.toBeNull();
+        });
+        expect(createWrapper(container).findFlashbar()!.findItems()[0].findContent()!.getElement().textContent)
+            .toMatch(/bad\.yaml/);
+    });
+
+    it('does nothing when an import is cancelled', async () => {
+        importWorkflow.mockResolvedValueOnce({ status: 'cancelled' });
+        const { container } = render(<App />);
+        createWrapper(container).findButton('[data-testid="import"]')!.click();
+        // No flash, model unchanged.
+        await waitFor(() => expect(importWorkflow).toHaveBeenCalled());
+        expect(createWrapper(container).findFlashbar()).toBeNull();
+        expect(seenController?.graph.nodes.map((n) => n.type)).toEqual(['Sleep']);
+    });
+
+    it('dismisses the import-error flash', async () => {
+        importWorkflow.mockResolvedValueOnce({ status: 'invalid', name: 'bad.yaml' });
+        const { container } = render(<App />);
+        createWrapper(container).findButton('[data-testid="import"]')!.click();
+        await waitFor(() => expect(createWrapper(container).findFlashbar()).not.toBeNull());
+        createWrapper(container).findFlashbar()!.findItems()[0].findDismissButton()!.click();
+        await waitFor(() => expect(createWrapper(container).findFlashbar()).toBeNull());
     });
 });
