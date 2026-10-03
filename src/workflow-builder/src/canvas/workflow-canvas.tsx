@@ -36,6 +36,10 @@ export interface WorkflowCanvasProps {
 // One custom node type handles every step type (it branches on data.stepType).
 const NODE_TYPES: NodeTypes = { [WORKFLOW_NODE_TYPE]: WorkflowNodeView };
 
+// Draw dependency wires a little thicker than React Flow's 1px default so they read
+// clearly on the dotted canvas.
+const DEFAULT_EDGE_OPTIONS = { style: { strokeWidth: 2 } };
+
 // The Visual-mode canvas (docs sections 4, 5, 8): a thin wrapper over React Flow that
 // projects the single-source-of-truth graph (via the controller) into nodes/edges,
 // routes React Flow's change/connect callbacks back into model mutations, forbids a
@@ -99,6 +103,7 @@ export function WorkflowCanvas({ controller, onEditNode, onContextMenu, colorMod
                 onEdgeContextMenu={onEdgeContextMenu}
                 isValidConnection={isValidConnection}
                 fitView
+                defaultEdgeOptions={DEFAULT_EDGE_OPTIONS}
                 deleteKeyCode={['Backspace', 'Delete']}
             >
                 <Background />

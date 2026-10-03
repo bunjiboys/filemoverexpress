@@ -18,3 +18,10 @@ const LIGHT: SurfaceColors = { background: '#ffffff', text: '#000716', border: '
 export function surfaceColors(mode: ColorMode): SurfaceColors {
     return mode === 'dark' ? DARK : LIGHT;
 }
+
+// The app font, for elements that render inside React Flow's DOM (node, context menu).
+// Cloudscape's --font-family-base IS defined on :root (unlike the container-scoped
+// color tokens), so it resolves here; the sans-serif fallback keeps the text from
+// defaulting to the browser serif if the variable is ever missing.
+export const UI_FONT_FAMILY =
+    'var(--font-family-base, "Open Sans", "Helvetica Neue", Arial, sans-serif)';

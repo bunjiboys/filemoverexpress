@@ -1,6 +1,6 @@
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 import type { WorkflowNodeData } from './flow-mapping';
-import { surfaceColors } from './theme';
+import { surfaceColors, UI_FONT_FAMILY } from './theme';
 
 // The custom React Flow node for every step type (docs section 5): a single generic
 // shape driven by data.stepType, showing the type and the node's display name, with
@@ -20,6 +20,7 @@ export function WorkflowNodeView({ data, selected }: NodeProps): React.JSX.Eleme
                 padding: '8px 12px',
                 background: colors.background,
                 color: colors.text,
+                fontFamily: UI_FONT_FAMILY,
                 minWidth: 140,
             }}
         >

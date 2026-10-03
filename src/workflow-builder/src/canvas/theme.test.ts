@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { surfaceColors } from './theme';
+import { surfaceColors, UI_FONT_FAMILY } from './theme';
 
 // The canvas node and the right-click menu render inside React Flow's own DOM, where
 // Cloudscape's container CSS variables do not resolve, so a var()-with-light-fallback
@@ -24,5 +24,12 @@ describe('surfaceColors', () => {
     it('provides a border color for each mode', () => {
         expect(surfaceColors('light').border).toBeTruthy();
         expect(surfaceColors('dark').border).toBeTruthy();
+    });
+});
+
+describe('UI_FONT_FAMILY', () => {
+    it('references the Cloudscape font variable with a sans-serif fallback', () => {
+        expect(UI_FONT_FAMILY).toContain('--font-family-base');
+        expect(UI_FONT_FAMILY).toContain('sans-serif');
     });
 });

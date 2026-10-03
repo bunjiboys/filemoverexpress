@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { surfaceColors } from './theme';
+import { surfaceColors, UI_FONT_FAMILY } from './theme';
 import type { ColorMode } from '../app/use-color-mode';
 
 export interface ContextMenuItem {
@@ -61,6 +61,8 @@ export function ContextMenu({ x, y, items, colorMode, onDismiss }: ContextMenuPr
                 border: `1px solid ${colors.border}`,
                 background: colors.background,
                 color: colors.text,
+                fontFamily: UI_FONT_FAMILY,
+                fontSize: 14,
                 boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
             }}
         >
