@@ -73,4 +73,13 @@ describe('PropertyForm', () => {
         field?.findControl()?.findInput()?.setInputValue('/a, /b');
         expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ sources: ['/a', '/b'] }));
     });
+
+    it('renders camelCase schema keys as humanized Title Case labels', () => {
+        const { container } = render(<PropertyForm type="Job" value={jobValue()} onChange={vi.fn()} />);
+        const labels = createWrapper(container)
+            .findAllFormFields()
+            .map((f) => f.findLabel()?.getElement().textContent ?? '');
+        expect(labels).toContain('Transfer Profile');
+        expect(labels).toContain('Destination');
+    });
 });

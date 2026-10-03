@@ -57,7 +57,7 @@ function ModalContent({ node, onSave, onDelete, onDismiss }: {
 
     return (
         <SpaceBetween size="m">
-            <FormField label="name">
+            <FormField label="Name">
                 <Input data-testid="node-name" value={name} onChange={(e) => setName(e.detail.value)} />
             </FormField>
             <PropertyForm type={node.type} value={payload} onChange={setPayload} />

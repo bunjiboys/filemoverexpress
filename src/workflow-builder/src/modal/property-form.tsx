@@ -4,6 +4,7 @@ import Checkbox from '@cloudscape-design/components/checkbox';
 import Select from '@cloudscape-design/components/select';
 import { fieldsForType } from './fields-for-type';
 import type { FieldSpec } from './field-spec';
+import { humanizeFieldLabel } from './humanize-label';
 import { enumOptions, joinList, selectedOption, splitList, textValue } from './field-mappers';
 
 export interface PropertyFormProps {
@@ -25,7 +26,7 @@ export function PropertyForm({ type, value, onChange }: PropertyFormProps): Reac
     return (
         <div>
             {fields.map((field) => (
-                <FormField key={field.name} label={field.name} description={field.description}>
+                <FormField key={field.name} label={humanizeFieldLabel(field.name)} description={field.description}>
                     <FieldControl field={field} value={value[field.name]} onChange={(v) => set(field.name, v)} />
                 </FormField>
             ))}
