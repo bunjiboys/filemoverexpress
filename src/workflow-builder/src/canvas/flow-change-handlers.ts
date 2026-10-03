@@ -1,4 +1,4 @@
-import type { EdgeChange, NodeChange } from '@xyflow/react';
+import type { EdgeChange, Node, NodeChange } from '@xyflow/react';
 import { parseEdgeId } from './flow-mapping';
 import type { WorkflowGraphController } from './use-workflow-graph';
 
@@ -6,9 +6,11 @@ import type { WorkflowGraphController } from './use-workflow-graph';
 // Only position (a free drag) and remove (delete) changes mutate the model; selection
 // and dimension changes are React Flow's own view concern and are ignored. Keeping
 // this pure lets the branch logic be unit-tested without the un-renderable canvas.
-export function applyNodeChangesToModel(
+// Generic over the node type so a custom-typed change batch (NodeChange<FlowNode>[])
+// is accepted without a cast.
+export function applyNodeChangesToModel<NodeType extends Node>(
     controller: WorkflowGraphController,
-    changes: NodeChange[],
+    changes: NodeChange<NodeType>[],
 ): void {
     for (const change of changes) {
         if (change.type === 'position' && change.position !== undefined) {

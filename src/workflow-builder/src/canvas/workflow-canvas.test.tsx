@@ -43,6 +43,7 @@ vi.mock('@xyflow/react', () => ({
     MiniMap: () => <div data-testid="rf-minimap" />,
     Handle: () => <div />,
     Position: { Left: 'left', Right: 'right', Top: 'top', Bottom: 'bottom' },
+    applyNodeChanges: (_changes: NodeChange[], nodes: unknown[]) => nodes,
 }));
 
 import { WorkflowCanvas } from './workflow-canvas';

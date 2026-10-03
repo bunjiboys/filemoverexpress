@@ -1,4 +1,9 @@
 import { ReactFlowProvider } from '@xyflow/react';
+// React Flow ships its own stylesheet for the canvas, nodes, edges, handles,
+// controls and minimap; without it the nodes render unstyled and the controls break
+// (reactflow.dev/error#013). Imported here, with the canvas, so it loads only in
+// Visual mode. A CSS side-effect import carries no logic for the coverage gate.
+import '@xyflow/react/dist/style.css';
 import Box from '@cloudscape-design/components/box';
 import Button from '@cloudscape-design/components/button';
 import SpaceBetween from '@cloudscape-design/components/space-between';
