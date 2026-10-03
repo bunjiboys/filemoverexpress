@@ -86,6 +86,13 @@ export function updateNode(graph: WorkflowGraph, id: string, patch: NodePatch): 
     return withNodesEdges(graph, nodes, graph.edges);
 }
 
+// Remove every edge incident to a node WITHOUT removing the node (right-click "clear
+// connections"). Distinct from deleteNode, which also drops the node.
+export function clearNodeEdges(graph: WorkflowGraph, id: string): WorkflowGraph {
+    const edges = graph.edges.filter((e) => e.source !== id && e.target !== id);
+    return withNodesEdges(graph, graph.nodes, edges);
+}
+
 // Rebuild a graph with new nodes/edges while carrying document-level fields through
 // unchanged. Centralizes the pass-through so each reducer stays a one-liner and no
 // reducer forgets to preserve metadata/parameters/defaults.

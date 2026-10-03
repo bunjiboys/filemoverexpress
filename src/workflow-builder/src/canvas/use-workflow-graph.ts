@@ -8,6 +8,7 @@ import {
     deleteEdge as deleteEdgeReducer,
     deleteNode as deleteNodeReducer,
     updateNode as updateNodeReducer,
+    clearNodeEdges as clearNodeEdgesReducer,
     type NodePatch,
 } from './graph-mutations';
 
@@ -25,6 +26,7 @@ export interface WorkflowGraphController {
     addNode: (type: string) => void;
     deleteNode: (id: string) => void;
     updateNode: (id: string, patch: NodePatch) => void;
+    clearConnections: (id: string) => void;
     connect: (edge: WorkflowEdge) => void;
     deleteEdge: (edge: WorkflowEdge) => void;
     moveNode: (id: string, position: Point) => void;
@@ -93,6 +95,12 @@ export function useWorkflowGraph(
         setGraphState((g) => updateNodeReducer(g, id, patch));
     }, []);
 
+    // Right-click "clear connections": drop every edge touching the node, keeping the
+    // node itself. Structure changes, so layout re-runs and overlays existing positions.
+    const clearConnections = useCallback((id: string) => {
+        setGraphState((g) => clearNodeEdgesReducer(g, id));
+    }, []);
+
     const connect = useCallback((edge: WorkflowEdge) => {
         setGraphState((g) => (wouldCreateCycle(g, edge) ? g : connectNodes(g, edge)));
     }, []);
@@ -127,6 +135,7 @@ export function useWorkflowGraph(
         addNode,
         deleteNode,
         updateNode,
+        clearConnections,
         connect,
         deleteEdge,
         moveNode,

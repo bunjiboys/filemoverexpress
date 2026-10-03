@@ -26,6 +26,7 @@ function controllerStub(
         addNode: vi.fn(),
         deleteNode: vi.fn(),
         updateNode: vi.fn(),
+        clearConnections: vi.fn(),
         connect: vi.fn(),
         deleteEdge: vi.fn(),
         moveNode: vi.fn(),
@@ -142,3 +143,4 @@ describe('useFlowNodes', () => {
         expect(a?.data).toEqual({ stepType: 'Job', name: 'Renamed' });
     });
 });
+

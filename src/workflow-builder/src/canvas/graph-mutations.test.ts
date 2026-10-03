@@ -5,6 +5,7 @@ import {
     connectNodes,
     deleteEdge,
     updateNode,
+    clearNodeEdges,
     nextNodeId,
 } from './graph-mutations';
 import type { WorkflowGraph } from '../workflow/graph';
@@ -185,5 +186,41 @@ describe('updateNode', () => {
         const graph: WorkflowGraph = { nodes: [node('a')], edges: [] };
         updateNode(graph, 'a', { with: { duration: '1h' } });
         expect(graph.nodes[0].with).toEqual({});
+    });
+});
+
+describe('clearNodeEdges', () => {
+    it('removes every edge touching the node but keeps the node', () => {
+        const graph: WorkflowGraph = {
+            nodes: [node('a'),
+                node('b'),
+                node('c')],
+            edges: [{ source: 'a', target: 'b' }, { source: 'b', target: 'c' }],
+        };
+        const result = clearNodeEdges(graph, 'b');
+        expect(result.nodes.map((n) => n.id)).toEqual(['a',
+            'b',
+            'c']);
+        expect(result.edges).toEqual([]);
+    });
+
+    it('leaves edges that do not touch the node', () => {
+        const graph: WorkflowGraph = {
+            nodes: [node('a'),
+                node('b'),
+                node('c')],
+            edges: [{ source: 'a', target: 'b' }, { source: 'a', target: 'c' }],
+        };
+        const result = clearNodeEdges(graph, 'b');
+        expect(result.edges).toEqual([{ source: 'a', target: 'c' }]);
+    });
+
+    it('is a no-op for a node with no edges', () => {
+        const graph: WorkflowGraph = {
+            nodes: [node('a'), node('b')],
+            edges: [{ source: 'a', target: 'b' }],
+        };
+        const result = clearNodeEdges(graph, 'standalone');
+        expect(result.edges).toEqual([{ source: 'a', target: 'b' }]);
     });
 });

@@ -16,8 +16,49 @@ vi.mock('./add-step-menu', () => ({
     ),
 }));
 vi.mock('./workflow-canvas', () => ({
-    WorkflowCanvas: ({ onEditNode }: { onEditNode: (id: string) => void }) => (
-        <button type="button" data-testid="edit-a" onClick={() => onEditNode('a')}>canvas</button>
+    WorkflowCanvas: ({ onEditNode, onContextMenu }: {
+        onEditNode: (id: string) => void;
+        onContextMenu: (t: { kind: 'node' | 'edge'; id: string; x: number; y: number }) => void;
+    }) => (
+        <div>
+            <button type="button" data-testid="edit-a" onClick={() => onEditNode('a')}>canvas</button>
+            <button
+                type="button"
+                data-testid="ctx-node"
+                onClick={() => onContextMenu({ kind: 'node', id: 'a', x: 1, y: 2 })}
+            >ctx node</button>
+            <button
+                type="button"
+                data-testid="ctx-edge"
+                onClick={() => onContextMenu({ kind: 'edge', id: 'a->b', x: 3, y: 4 })}
+            >ctx edge</button>
+            <button
+                type="button"
+                data-testid="ctx-edge-bad"
+                onClick={() => onContextMenu({ kind: 'edge', id: 'notanedge', x: 3, y: 4 })}
+            >ctx bad edge</button>
+        </div>
+    ),
+}));
+vi.mock('./context-menu', () => ({
+    ContextMenu: ({ items, onDismiss }: {
+        items: { id: string; label: string; onSelect: () => void }[];
+        onDismiss: () => void;
+    }) => (
+        <div data-testid="context-menu">
+            {items.map((item) => (
+                <button
+                    key={item.id}
+                    type="button"
+                    data-testid={`ctx-item-${item.id}`}
+                    onClick={() => {
+                        item.onSelect();
+                        onDismiss();
+                    }}
+                >{item.label}</button>
+            ))}
+            <button type="button" data-testid="ctx-dismiss" onClick={onDismiss}>dismiss</button>
+        </div>
     ),
 }));
 vi.mock('@xyflow/react', () => ({
@@ -48,6 +89,7 @@ function controllerStub(overrides: Partial<WorkflowGraphController> = {}): Workf
         addNode: vi.fn(),
         deleteNode: vi.fn(),
         updateNode: vi.fn(),
+        clearConnections: vi.fn(),
         connect: vi.fn(),
         deleteEdge: vi.fn(),
         moveNode: vi.fn(),
@@ -116,5 +158,66 @@ describe('CanvasPane', () => {
         expect(controller.updateNode).not.toHaveBeenCalled();
         expect(screen.queryByTestId('modal')).not.toBeInTheDocument();
     });
+
+    it('shows no context menu until a right-click target is raised', () => {
+        render(<CanvasPane controller={controllerStub()} />);
+        expect(screen.queryByTestId('context-menu')).not.toBeInTheDocument();
+    });
+
+    it('opens a node context menu with edit, delete and clear-connections', () => {
+        render(<CanvasPane controller={controllerStub()} />);
+        fireEvent.click(screen.getByTestId('ctx-node'));
+        expect(screen.getByTestId('ctx-item-edit')).toBeInTheDocument();
+        expect(screen.getByTestId('ctx-item-delete')).toBeInTheDocument();
+        expect(screen.getByTestId('ctx-item-clear')).toBeInTheDocument();
+    });
+
+    it('edits a node from its context menu', () => {
+        render(<CanvasPane controller={controllerStub()} />);
+        fireEvent.click(screen.getByTestId('ctx-node'));
+        fireEvent.click(screen.getByTestId('ctx-item-edit'));
+        expect(screen.getByTestId('modal-node').textContent).toBe('a');
+        expect(screen.queryByTestId('context-menu')).not.toBeInTheDocument();
+    });
+
+    it('deletes a node from its context menu', () => {
+        const controller = controllerStub();
+        render(<CanvasPane controller={controller} />);
+        fireEvent.click(screen.getByTestId('ctx-node'));
+        fireEvent.click(screen.getByTestId('ctx-item-delete'));
+        expect(controller.deleteNode).toHaveBeenCalledWith('a');
+    });
+
+    it('clears a node\'s connections from its context menu', () => {
+        const controller = controllerStub();
+        render(<CanvasPane controller={controller} />);
+        fireEvent.click(screen.getByTestId('ctx-node'));
+        fireEvent.click(screen.getByTestId('ctx-item-clear'));
+        expect(controller.clearConnections).toHaveBeenCalledWith('a');
+    });
+
+    it('deletes a wire from an edge context menu', () => {
+        const controller = controllerStub();
+        render(<CanvasPane controller={controller} />);
+        fireEvent.click(screen.getByTestId('ctx-edge'));
+        fireEvent.click(screen.getByTestId('ctx-item-delete-edge'));
+        expect(controller.deleteEdge).toHaveBeenCalledWith({ source: 'a', target: 'b' });
+    });
+
+    it('ignores an edge context-menu delete whose id does not parse', () => {
+        const controller = controllerStub();
+        render(<CanvasPane controller={controller} />);
+        fireEvent.click(screen.getByTestId('ctx-edge-bad'));
+        fireEvent.click(screen.getByTestId('ctx-item-delete-edge'));
+        expect(controller.deleteEdge).not.toHaveBeenCalled();
+    });
+
+    it('dismisses the context menu', () => {
+        render(<CanvasPane controller={controllerStub()} />);
+        fireEvent.click(screen.getByTestId('ctx-node'));
+        fireEvent.click(screen.getByTestId('ctx-dismiss'));
+        expect(screen.queryByTestId('context-menu')).not.toBeInTheDocument();
+    });
 });
+
 

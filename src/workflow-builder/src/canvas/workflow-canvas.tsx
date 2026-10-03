@@ -15,10 +15,19 @@ import { WorkflowNodeView } from './workflow-node';
 import { useFlowNodes } from './use-flow-nodes';
 import { applyEdgeChangesToModel } from './flow-change-handlers';
 
+export interface ContextMenuTarget {
+    kind: 'node' | 'edge';
+    id: string;
+    x: number;
+    y: number;
+}
+
 export interface WorkflowCanvasProps {
     controller: WorkflowGraphController;
     // Open the property editor for a node (double-click).
     onEditNode: (id: string) => void;
+    // Open the right-click context menu for a node or edge at a screen position.
+    onContextMenu: (target: ContextMenuTarget) => void;
 }
 
 // One custom node type handles every step type (it branches on data.stepType).
@@ -27,11 +36,12 @@ const NODE_TYPES: NodeTypes = { [WORKFLOW_NODE_TYPE]: WorkflowNodeView };
 // The Visual-mode canvas (docs sections 4, 5, 8): a thin wrapper over React Flow that
 // projects the single-source-of-truth graph (via the controller) into nodes/edges,
 // routes React Flow's change/connect callbacks back into model mutations, forbids a
-// cycle-creating connection at draw time (isValidConnection), and opens the property
-// editor on a node double-click. Node view state is controlled through useFlowNodes so
-// React Flow can initialize and drag nodes; the real logic lives in the pure modules
-// it composes (flow-mapping, flow-change-handlers, use-flow-nodes, cycle).
-export function WorkflowCanvas({ controller, onEditNode }: WorkflowCanvasProps): React.JSX.Element {
+// cycle-creating connection at draw time (isValidConnection), opens the property
+// editor on a node double-click, and raises a context-menu target on right-click of a
+// node or edge. Node view state is controlled through useFlowNodes so React Flow can
+// initialize and drag nodes; the real logic lives in the pure modules it composes
+// (flow-mapping, flow-change-handlers, use-flow-nodes, cycle).
+export function WorkflowCanvas({ controller, onEditNode, onContextMenu }: WorkflowCanvasProps): React.JSX.Element {
     const { nodes, onNodesChange } = useFlowNodes(controller);
     const edges = useMemo(() => toFlowEdges(controller.graph), [controller.graph]);
 
@@ -55,6 +65,23 @@ export function WorkflowCanvas({ controller, onEditNode }: WorkflowCanvasProps):
         [onEditNode],
     );
 
+    // Right-click a node: suppress the browser menu and raise our own at the cursor.
+    const onNodeContextMenu = useCallback(
+        (event: React.MouseEvent, node: { id: string }) => {
+            event.preventDefault();
+            onContextMenu({ kind: 'node', id: node.id, x: event.clientX, y: event.clientY });
+        },
+        [onContextMenu],
+    );
+    // Right-click an edge: same, for a wire.
+    const onEdgeContextMenu = useCallback(
+        (event: React.MouseEvent, edge: { id: string }) => {
+            event.preventDefault();
+            onContextMenu({ kind: 'edge', id: edge.id, x: event.clientX, y: event.clientY });
+        },
+        [onContextMenu],
+    );
+
     return (
         <div style={{ width: '100%', height: '100%' }}>
             <ReactFlow
@@ -65,6 +92,8 @@ export function WorkflowCanvas({ controller, onEditNode }: WorkflowCanvasProps):
                 onEdgesChange={onEdgesChange}
                 onConnect={onConnect}
                 onNodeDoubleClick={onNodeDoubleClick}
+                onNodeContextMenu={onNodeContextMenu}
+                onEdgeContextMenu={onEdgeContextMenu}
                 isValidConnection={isValidConnection}
                 fitView
                 deleteKeyCode={['Backspace', 'Delete']}
