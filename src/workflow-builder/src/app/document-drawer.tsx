@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import Box from '@cloudscape-design/components/box';
 import Button from '@cloudscape-design/components/button';
 import { DocumentPanel } from './document-panel';
-import { surfaceColors } from '../canvas/theme';
+import { panelColors } from '../canvas/theme';
 import type { DocumentPatch } from '../canvas/graph-mutations';
 import type { ColorMode } from './use-color-mode';
 import type { WorkflowGraph } from '../workflow/graph';
@@ -38,7 +38,7 @@ export function DocumentDrawer({ open, graph, colorMode = 'light', onChange, onC
         return null;
     }
 
-    const colors = surfaceColors(colorMode);
+    const colors = panelColors(colorMode);
     return (
         <div
             data-testid="document-drawer"

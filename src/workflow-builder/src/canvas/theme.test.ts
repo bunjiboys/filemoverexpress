@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { surfaceColors, UI_FONT_FAMILY } from './theme';
+import { surfaceColors, panelColors, UI_FONT_FAMILY } from './theme';
 
 // The canvas node and the right-click menu render inside React Flow's own DOM, where
 // Cloudscape's container CSS variables do not resolve, so a var()-with-light-fallback
@@ -31,5 +31,22 @@ describe('UI_FONT_FAMILY', () => {
     it('references the Cloudscape font variable with a sans-serif fallback', () => {
         expect(UI_FONT_FAMILY).toContain('--font-family-base');
         expect(UI_FONT_FAMILY).toContain('sans-serif');
+    });
+});
+
+describe('panelColors', () => {
+    it('returns a light surface in light mode', () => {
+        const c = panelColors('light');
+        expect(c.text).toBe('#000716');
+        expect(c.background).toBeTruthy();
+    });
+
+    it('returns a dark surface close to the canvas background in dark mode', () => {
+        const c = panelColors('dark');
+        // A large full-height panel should sit close to the canvas, not stand out like
+        // a raised node: darker than the node surface (#1b2a41).
+        expect(c.background.toLowerCase()).not.toBe('#1b2a41');
+        expect(c.text).toBe('#ffffff');
+        expect(c.border).toBeTruthy();
     });
 });

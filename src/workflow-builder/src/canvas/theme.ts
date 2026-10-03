@@ -19,6 +19,16 @@ export function surfaceColors(mode: ColorMode): SurfaceColors {
     return mode === 'dark' ? DARK : LIGHT;
 }
 
+// Surface colors for a LARGE panel (the document drawer) rather than a small raised
+// node. A full-height panel should read as part of the chrome, so in dark mode it sits
+// just a touch above the near-black canvas (Cloudscape dark canvas is ~#0f1b2d) rather
+// than the lighter node blue, which looked washed-out at that size.
+const PANEL_DARK: SurfaceColors = { background: '#13202f', text: '#ffffff', border: '#2b3b52' };
+
+export function panelColors(mode: ColorMode): SurfaceColors {
+    return mode === 'dark' ? PANEL_DARK : LIGHT;
+}
+
 // The app font, for elements that render inside React Flow's DOM (node, context menu).
 // Cloudscape's --font-family-base IS defined on :root (unlike the container-scoped
 // color tokens), so it resolves here; the sans-serif fallback keeps the text from
