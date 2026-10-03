@@ -12,6 +12,7 @@ import { validateText } from './editor/validate-text';
 import { convertText } from './editor/convert-text';
 import { type EditorFormat } from './editor/editor-text';
 import { CanvasPane } from './canvas/canvas-pane';
+import { SplitLayout } from './app/split-layout';
 import { useWorkflowGraph } from './canvas/use-workflow-graph';
 import { graphToText, textToGraph } from './app/model-text-sync';
 import { API_VERSION, KIND, type WorkflowGraph } from './workflow/graph';
@@ -102,6 +103,20 @@ export function App(): React.JSX.Element {
         setFormat(next);
     }, [format]);
 
+    // The two pane elements, built once and placed either side-by-side (resizable in
+    // split mode) or alone (single-pane modes).
+    const canvasPane = <CanvasPane controller={canvasController} />;
+    const editorPane = (
+        <EditorPane
+            text={text}
+            format={format}
+            annotations={annotations}
+            colorMode={color.mode}
+            onChangeText={onChangeText}
+            onChangeFormat={changeFormat}
+        />
+    );
+
     return (
         <AppLayout
             toolsHide
@@ -122,23 +137,21 @@ export function App(): React.JSX.Element {
                         </Header>
                     }
                 >
-                    <div style={{ display: 'flex', gap: 16 }}>
-                        {view.showCanvas && (
-                            <div data-testid="canvas-pane" style={{ flex: 1 }}>
-                                <CanvasPane controller={canvasController} />
-                            </div>
-                        )}
-                        {view.showEditor && (
-                            <div data-testid="editor-pane" style={{ flex: 1 }}>
-                                <EditorPane
-                                    text={text}
-                                    format={format}
-                                    annotations={annotations}
-                                    colorMode={color.mode}
-                                    onChangeText={onChangeText}
-                                    onChangeFormat={changeFormat}
-                                />
-                            </div>
+                    <div style={{ display: 'flex', gap: 16, height: '78vh' }}>
+                        {view.mode === 'split' ? (
+                            <SplitLayout
+                                left={<div data-testid="canvas-pane" style={{ height: '100%' }}>{canvasPane}</div>}
+                                right={<div data-testid="editor-pane" style={{ height: '100%' }}>{editorPane}</div>}
+                            />
+                        ) : (
+                            <>
+                                {view.showCanvas && (
+                                    <div data-testid="canvas-pane" style={{ flex: 1 }}>{canvasPane}</div>
+                                )}
+                                {view.showEditor && (
+                                    <div data-testid="editor-pane" style={{ flex: 1 }}>{editorPane}</div>
+                                )}
+                            </>
                         )}
                     </div>
                 </ContentLayout>
