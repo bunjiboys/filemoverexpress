@@ -71,6 +71,8 @@ export function SplitLayout({ left, right }: SplitLayoutProps): React.JSX.Elemen
                 onKeyDown={onKeyDown}
                 style={{
                     width: 8,
+                    margin: '0 8px',
+                    borderRadius: 4,
                     cursor: 'col-resize',
                     flexGrow: 0,
                     flexShrink: 0,
