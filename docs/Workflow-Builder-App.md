@@ -716,3 +716,62 @@ Explicitly out of v1, noted so they are not forgotten:
 - Vitest unit/component suite at a 100% coverage gate, plus a Playwright E2E suite for
   real canvas interaction, as separate CI steps.
 - No daemon connection, no execution, no AWS backend - a pure static authoring site.
+
+
+## 16. Implementation build order
+
+Build bottom-up: pure logic first (fast Vitest loop, highest test leverage, carries
+the real correctness burden), then layout, then UI cheapest-first, with the React
+Flow canvas last because it is the only part gated on the slow Playwright loop and it
+integrates everything beneath it. The schema (section 13) precedes all of it.
+
+Logic core (pure TypeScript):
+
+0. **Schema bundled** - prerequisite, done. `src/schema/v1.json` + the loader
+   (step types derived from the schema, ajv validation).
+1. **Node descriptors**: `Job` (done), then `Checksum`, `Sleep`, `InventoryReport`.
+   Each maps a step type's `with` to a canvas node and back (`fromStep`/`toStep`),
+   with its own nuance tested (Checksum `writeMhl` requires `mhlOutput`, Sleep
+   duration-string shape, InventoryReport's reduced field set with no `prefix`).
+2. **Descriptor registry** keyed by the schema's step-type enum (`STEP_TYPES`), so a
+   new format step type becomes a palette node by registering a descriptor. This is
+   the seam the palette and the graph serializer both consume.
+3. **Graph model + serializer** (`workflow/`) - the keystone. `dependsOn` lives here
+   (descriptors deliberately do not own it): `toWorkflow` walks nodes through their
+   descriptors and reconstructs `dependsOn` from edges; `fromWorkflow` is the import
+   direction; the round-trip invariant is a `@fast-check` property test; plus the
+   graph validation the schema cannot express (unique ids, acyclicity, dependsOn
+   integrity).
+4. **Parameters + defaults resolution** and `${params.x}` substitution: the
+   template-only lint and the resolve-then-validate pass. Independent of the canvas.
+
+Layout:
+
+5. **ELK layered layout + flow direction** (`layout/`): wrap `elkjs`, LR/TB
+   parameter, the fork/join crossing-minimization settings (section 8). Testable on
+   computed positions without rendering. Operates on the graph model, so it follows
+   it.
+
+UI, cheapest-first:
+
+6. **Schema-driven property form** (`modal/`), rendered with Cloudscape controls -
+   generated from a step type's `with` `$defs`. Mostly unit-testable, so before the
+   canvas.
+7. **Cloudscape app shell + view-mode control** (`app/`): AppLayout, the
+   Visual/Editor/Split segmented control, panels. Thin composition.
+8. **Monaco editor pane** (`editor/`), lazy-loaded: register the bundled schema,
+   wire the model<->text sync. After the shell; lower priority than the canvas since
+   Visual is the primary mode.
+9. **React Flow canvas** (`canvas/`): drag, port-to-port wiring, cycle prevention at
+   draw time, selection. Last of the build - it consumes descriptors, the graph
+   model, the layout engine and the modal, and it is the piece gated on Playwright
+   rather than fast unit tests.
+10. **Import/Export wiring** (`io/`) + browser file dialogs: connect the file
+    open/save abstraction to the serializer. Mostly glue once 3 and 9 exist.
+11. **Playwright E2E suite**: the Tier-2 flows (drag/wire/zoom/modal/view-mode,
+    export-then-reimport equality) once the canvas is interactive.
+
+Rationale: logic before pixels means the canvas is a view over already-proven state;
+the graph model (3) is third because everything visual is a projection of it; the
+canvas is last because it is the integration point and the only part on the slow
+test loop.
