@@ -14,6 +14,7 @@ import { connectionToEdge, toFlowEdges, WORKFLOW_NODE_TYPE } from './flow-mappin
 import { WorkflowNodeView } from './workflow-node';
 import { useFlowNodes } from './use-flow-nodes';
 import { applyEdgeChangesToModel } from './flow-change-handlers';
+import type { ColorMode } from '../app/use-color-mode';
 
 export interface ContextMenuTarget {
     kind: 'node' | 'edge';
@@ -28,6 +29,8 @@ export interface WorkflowCanvasProps {
     onEditNode: (id: string) => void;
     // Open the right-click context menu for a node or edge at a screen position.
     onContextMenu: (target: ContextMenuTarget) => void;
+    // Active color mode, carried onto each node so it themes itself.
+    colorMode: ColorMode;
 }
 
 // One custom node type handles every step type (it branches on data.stepType).
@@ -41,8 +44,8 @@ const NODE_TYPES: NodeTypes = { [WORKFLOW_NODE_TYPE]: WorkflowNodeView };
 // node or edge. Node view state is controlled through useFlowNodes so React Flow can
 // initialize and drag nodes; the real logic lives in the pure modules it composes
 // (flow-mapping, flow-change-handlers, use-flow-nodes, cycle).
-export function WorkflowCanvas({ controller, onEditNode, onContextMenu }: WorkflowCanvasProps): React.JSX.Element {
-    const { nodes, onNodesChange } = useFlowNodes(controller);
+export function WorkflowCanvas({ controller, onEditNode, onContextMenu, colorMode }: WorkflowCanvasProps): React.JSX.Element {
+    const { nodes, onNodesChange } = useFlowNodes(controller, colorMode);
     const edges = useMemo(() => toFlowEdges(controller.graph), [controller.graph]);
 
     const onEdgesChange = useCallback(

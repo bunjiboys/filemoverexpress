@@ -82,14 +82,14 @@ function controllerStub(overrides: Partial<WorkflowGraphController> = {}): Workf
 
 describe('WorkflowCanvas', () => {
     it('projects the controller graph into React Flow nodes and edges', () => {
-        render(<WorkflowCanvas controller={controllerStub()} onEditNode={vi.fn()} onContextMenu={vi.fn()} />);
+        render(<WorkflowCanvas controller={controllerStub()} onEditNode={vi.fn()} onContextMenu={vi.fn()} colorMode="light" />);
         const rf = screen.getByTestId('react-flow');
         expect(rf).toHaveAttribute('data-node-count', '2');
         expect(rf).toHaveAttribute('data-edge-count', '1');
     });
 
     it('renders the background, controls and minimap chrome', () => {
-        render(<WorkflowCanvas controller={controllerStub()} onEditNode={vi.fn()} onContextMenu={vi.fn()} />);
+        render(<WorkflowCanvas controller={controllerStub()} onEditNode={vi.fn()} onContextMenu={vi.fn()} colorMode="light" />);
         expect(screen.getByTestId('rf-background')).toBeInTheDocument();
         expect(screen.getByTestId('rf-controls')).toBeInTheDocument();
         expect(screen.getByTestId('rf-minimap')).toBeInTheDocument();
@@ -97,35 +97,35 @@ describe('WorkflowCanvas', () => {
 
     it('routes node position changes to the controller', () => {
         const controller = controllerStub();
-        render(<WorkflowCanvas controller={controller} onEditNode={vi.fn()} onContextMenu={vi.fn()} />);
+        render(<WorkflowCanvas controller={controller} onEditNode={vi.fn()} onContextMenu={vi.fn()} colorMode="light" />);
         captured.onNodesChange!([{ id: 'a', type: 'position', position: { x: 9, y: 9 } }]);
         expect(controller.moveNode).toHaveBeenCalledWith('a', { x: 9, y: 9 });
     });
 
     it('routes edge removals to the controller', () => {
         const controller = controllerStub();
-        render(<WorkflowCanvas controller={controller} onEditNode={vi.fn()} onContextMenu={vi.fn()} />);
+        render(<WorkflowCanvas controller={controller} onEditNode={vi.fn()} onContextMenu={vi.fn()} colorMode="light" />);
         captured.onEdgesChange!([{ id: 'a->b', type: 'remove' }]);
         expect(controller.deleteEdge).toHaveBeenCalledWith({ source: 'a', target: 'b' });
     });
 
     it('routes a connection to the controller', () => {
         const controller = controllerStub();
-        render(<WorkflowCanvas controller={controller} onEditNode={vi.fn()} onContextMenu={vi.fn()} />);
+        render(<WorkflowCanvas controller={controller} onEditNode={vi.fn()} onContextMenu={vi.fn()} colorMode="light" />);
         captured.onConnect!({ source: 'a', target: 'b', sourceHandle: null, targetHandle: null });
         expect(controller.connect).toHaveBeenCalledWith({ source: 'a', target: 'b' });
     });
 
     it('delegates connection validity to the controller', () => {
         const controller = controllerStub();
-        render(<WorkflowCanvas controller={controller} onEditNode={vi.fn()} onContextMenu={vi.fn()} />);
+        render(<WorkflowCanvas controller={controller} onEditNode={vi.fn()} onContextMenu={vi.fn()} colorMode="light" />);
         captured.isValidConnection!({ source: 'a', target: 'b', sourceHandle: null, targetHandle: null });
         expect(controller.isValidConnection).toHaveBeenCalledWith({ source: 'a', target: 'b' });
     });
 
     it('ignores a connection missing an endpoint', () => {
         const controller = controllerStub();
-        render(<WorkflowCanvas controller={controller} onEditNode={vi.fn()} onContextMenu={vi.fn()} />);
+        render(<WorkflowCanvas controller={controller} onEditNode={vi.fn()} onContextMenu={vi.fn()} colorMode="light" />);
         captured.onConnect!({ source: null, target: 'b', sourceHandle: null, targetHandle: null } as never);
         captured.isValidConnection!({ source: 'a', target: null, sourceHandle: null, targetHandle: null } as never);
         expect(controller.connect).not.toHaveBeenCalled();
@@ -134,14 +134,14 @@ describe('WorkflowCanvas', () => {
 
     it('opens the editor for a double-clicked node', () => {
         const onEditNode = vi.fn();
-        render(<WorkflowCanvas controller={controllerStub()} onEditNode={onEditNode} onContextMenu={vi.fn()} />);
+        render(<WorkflowCanvas controller={controllerStub()} onEditNode={onEditNode} onContextMenu={vi.fn()} colorMode="light" />);
         captured.onNodeDoubleClick!({}, { id: 'a' });
         expect(onEditNode).toHaveBeenCalledWith('a');
     });
 
     it('raises a node context-menu target at the cursor and suppresses the browser menu', () => {
         const onContextMenu = vi.fn();
-        render(<WorkflowCanvas controller={controllerStub()} onEditNode={vi.fn()} onContextMenu={onContextMenu} />);
+        render(<WorkflowCanvas controller={controllerStub()} onEditNode={vi.fn()} onContextMenu={onContextMenu} colorMode="light" />);
         const preventDefault = vi.fn();
         captured.onNodeContextMenu!({ preventDefault, clientX: 12, clientY: 34 }, { id: 'a' });
         expect(preventDefault).toHaveBeenCalled();
@@ -150,13 +150,14 @@ describe('WorkflowCanvas', () => {
 
     it('raises an edge context-menu target at the cursor', () => {
         const onContextMenu = vi.fn();
-        render(<WorkflowCanvas controller={controllerStub()} onEditNode={vi.fn()} onContextMenu={onContextMenu} />);
+        render(<WorkflowCanvas controller={controllerStub()} onEditNode={vi.fn()} onContextMenu={onContextMenu} colorMode="light" />);
         const preventDefault = vi.fn();
         captured.onEdgeContextMenu!({ preventDefault, clientX: 5, clientY: 6 }, { id: 'a->b' });
         expect(preventDefault).toHaveBeenCalled();
         expect(onContextMenu).toHaveBeenCalledWith({ kind: 'edge', id: 'a->b', x: 5, y: 6 });
     });
 });
+
 
 
 

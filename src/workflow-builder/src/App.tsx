@@ -108,7 +108,7 @@ export function App(): React.JSX.Element {
 
     // The two pane elements, built once and placed either side-by-side (resizable in
     // split mode) or alone (single-pane modes).
-    const canvasPane = <CanvasPane controller={canvasController} />;
+    const canvasPane = <CanvasPane controller={canvasController} colorMode={color.mode} />;
     const editorPane = (
         <EditorPane
             text={text}

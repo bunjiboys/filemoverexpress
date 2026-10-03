@@ -19,27 +19,27 @@ describe('toFlowNodes', () => {
     it('maps model nodes to React Flow nodes at their positioned coordinates', () => {
         const graph: WorkflowGraph = { nodes: [node('a', 'Job', 'Copy')], edges: [] };
         const positions: PositionedNode[] = [{ id: 'a', x: 10, y: 20 }];
-        const result = toFlowNodes(graph, positions);
+        const result = toFlowNodes(graph, positions, 'dark');
         expect(result).toEqual([
             {
                 id: 'a',
                 type: 'workflow',
                 position: { x: 10, y: 20 },
-                data: { stepType: 'Job', name: 'Copy' },
+                data: { stepType: 'Job', name: 'Copy', colorMode: 'dark' },
             },
         ]);
     });
 
     it('falls back to the origin for a node with no computed position', () => {
         const graph: WorkflowGraph = { nodes: [node('a')], edges: [] };
-        const result = toFlowNodes(graph, []);
+        const result = toFlowNodes(graph, [], 'light');
         expect(result[0].position).toEqual({ x: 0, y: 0 });
     });
 
-    it('carries an undefined name through as undefined', () => {
+    it('carries an undefined name through as undefined and the given color mode', () => {
         const graph: WorkflowGraph = { nodes: [node('a')], edges: [] };
-        const result = toFlowNodes(graph, [{ id: 'a', x: 0, y: 0 }]);
-        expect(result[0].data).toEqual({ stepType: 'Sleep', name: undefined });
+        const result = toFlowNodes(graph, [{ id: 'a', x: 0, y: 0 }], 'light');
+        expect(result[0].data).toEqual({ stepType: 'Sleep', name: undefined, colorMode: 'light' });
     });
 });
 

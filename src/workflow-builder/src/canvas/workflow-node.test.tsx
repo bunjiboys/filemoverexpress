@@ -14,9 +14,9 @@ import { WorkflowNodeView } from './workflow-node';
 import type { NodeProps } from '@xyflow/react';
 
 const nodeProps = (
-    data: { stepType: string; name: string | undefined },
+    data: { stepType: string; name: string | undefined; colorMode?: 'light' | 'dark' },
     selected = false,
-): NodeProps => ({ data, selected } as unknown as NodeProps);
+): NodeProps => ({ data: { colorMode: 'light', ...data }, selected } as unknown as NodeProps);
 
 describe('WorkflowNodeView', () => {
     it('shows the step type', () => {
@@ -43,5 +43,13 @@ describe('WorkflowNodeView', () => {
     it('marks itself selected when React Flow selects it', () => {
         render(<WorkflowNodeView {...nodeProps({ stepType: 'Job', name: 'x' }, true)} />);
         expect(screen.getByText('x').closest('[data-selected="true"]')).not.toBeNull();
+    });
+
+    it('uses the dark surface color in dark mode', () => {
+        render(<WorkflowNodeView {...nodeProps({ stepType: 'Job', name: 'x', colorMode: 'dark' })} />);
+        const box = screen.getByText('x').closest('[data-selected]') as HTMLElement;
+        // Dark surface is not white; jsdom reports rgb, so just assert it is not white.
+        expect(box.style.background).not.toBe('');
+        expect(box.style.background.toLowerCase()).not.toContain('255, 255, 255');
     });
 });

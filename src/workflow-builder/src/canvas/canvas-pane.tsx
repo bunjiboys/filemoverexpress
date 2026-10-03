@@ -15,9 +15,11 @@ import { parseEdgeId } from './flow-mapping';
 import { PropertyModal } from '../modal/property-modal';
 import type { NodePatch } from './graph-mutations';
 import type { WorkflowGraphController } from './use-workflow-graph';
+import type { ColorMode } from '../app/use-color-mode';
 
 export interface CanvasPaneProps {
     controller: WorkflowGraphController;
+    colorMode: ColorMode;
 }
 
 // The Visual-mode pane: a toolbar across the top (add-step dropdown, re-layout, and a
@@ -27,7 +29,7 @@ export interface CanvasPaneProps {
 // mutation is a controller method; local state is only the node the modal is editing
 // and the open context-menu target. The canvas is wrapped in ReactFlowProvider so
 // React Flow's Controls/MiniMap can reach its store at runtime (mocked in tests).
-export function CanvasPane({ controller }: CanvasPaneProps): React.JSX.Element {
+export function CanvasPane({ controller, colorMode }: CanvasPaneProps): React.JSX.Element {
     const [editingId, setEditingId] = useState<string | null>(null);
     const [menu, setMenu] = useState<ContextMenuTarget | null>(null);
     const editingNode = controller.graph.nodes.find((n) => n.id === editingId) ?? null;
@@ -81,11 +83,16 @@ export function CanvasPane({ controller }: CanvasPaneProps): React.JSX.Element {
             </Box>
             <div style={{ flex: 1, border: '1px solid #8c8c94', borderRadius: 8, minHeight: 0 }}>
                 <ReactFlowProvider>
-                    <WorkflowCanvas controller={controller} onEditNode={setEditingId} onContextMenu={setMenu} />
+                    <WorkflowCanvas
+                        controller={controller}
+                        onEditNode={setEditingId}
+                        onContextMenu={setMenu}
+                        colorMode={colorMode}
+                    />
                 </ReactFlowProvider>
             </div>
             {menu !== null && (
-                <ContextMenu x={menu.x} y={menu.y} items={menuItems} onDismiss={closeMenu} />
+                <ContextMenu x={menu.x} y={menu.y} items={menuItems} colorMode={colorMode} onDismiss={closeMenu} />
             )}
             <PropertyModal node={editingNode} onSave={save} onDelete={remove} onDismiss={dismiss} />
         </div>

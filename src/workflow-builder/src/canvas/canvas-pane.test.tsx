@@ -102,39 +102,39 @@ function controllerStub(overrides: Partial<WorkflowGraphController> = {}): Workf
 
 describe('CanvasPane', () => {
     it('renders the palette and the canvas', () => {
-        render(<CanvasPane controller={controllerStub()} />);
+        render(<CanvasPane controller={controllerStub()} colorMode="light" />);
         expect(screen.getByTestId('palette')).toBeInTheDocument();
         expect(screen.getByTestId('edit-a')).toBeInTheDocument();
     });
 
     it('adds a node through the palette', () => {
         const controller = controllerStub();
-        render(<CanvasPane controller={controller} />);
+        render(<CanvasPane controller={controller} colorMode="light" />);
         fireEvent.click(screen.getByTestId('palette'));
         expect(controller.addNode).toHaveBeenCalledWith('Job');
     });
 
     it('re-runs layout when the re-layout button is clicked', () => {
         const controller = controllerStub();
-        const { container } = render(<CanvasPane controller={controller} />);
+        const { container } = render(<CanvasPane controller={controller} colorMode="light" />);
         createWrapper(container).findButton('[data-testid="relayout"]')!.click();
         expect(controller.relayout).toHaveBeenCalled();
     });
 
     it('keeps the modal closed until a node is edited', () => {
-        render(<CanvasPane controller={controllerStub()} />);
+        render(<CanvasPane controller={controllerStub()} colorMode="light" />);
         expect(screen.queryByTestId('modal')).not.toBeInTheDocument();
     });
 
     it('opens the modal for the double-clicked node', () => {
-        render(<CanvasPane controller={controllerStub()} />);
+        render(<CanvasPane controller={controllerStub()} colorMode="light" />);
         fireEvent.click(screen.getByTestId('edit-a'));
         expect(screen.getByTestId('modal-node').textContent).toBe('a');
     });
 
     it('saves an edit through the controller and closes the modal', () => {
         const controller = controllerStub();
-        render(<CanvasPane controller={controller} />);
+        render(<CanvasPane controller={controller} colorMode="light" />);
         fireEvent.click(screen.getByTestId('edit-a'));
         fireEvent.click(screen.getByTestId('modal-save'));
         expect(controller.updateNode).toHaveBeenCalledWith('a', { name: 'X' });
@@ -143,7 +143,7 @@ describe('CanvasPane', () => {
 
     it('deletes a node through the controller and closes the modal', () => {
         const controller = controllerStub();
-        render(<CanvasPane controller={controller} />);
+        render(<CanvasPane controller={controller} colorMode="light" />);
         fireEvent.click(screen.getByTestId('edit-a'));
         fireEvent.click(screen.getByTestId('modal-delete'));
         expect(controller.deleteNode).toHaveBeenCalledWith('a');
@@ -152,7 +152,7 @@ describe('CanvasPane', () => {
 
     it('dismisses the modal without mutating', () => {
         const controller = controllerStub();
-        render(<CanvasPane controller={controller} />);
+        render(<CanvasPane controller={controller} colorMode="light" />);
         fireEvent.click(screen.getByTestId('edit-a'));
         fireEvent.click(screen.getByTestId('modal-dismiss'));
         expect(controller.updateNode).not.toHaveBeenCalled();
@@ -160,12 +160,12 @@ describe('CanvasPane', () => {
     });
 
     it('shows no context menu until a right-click target is raised', () => {
-        render(<CanvasPane controller={controllerStub()} />);
+        render(<CanvasPane controller={controllerStub()} colorMode="light" />);
         expect(screen.queryByTestId('context-menu')).not.toBeInTheDocument();
     });
 
     it('opens a node context menu with edit, delete and clear-connections', () => {
-        render(<CanvasPane controller={controllerStub()} />);
+        render(<CanvasPane controller={controllerStub()} colorMode="light" />);
         fireEvent.click(screen.getByTestId('ctx-node'));
         expect(screen.getByTestId('ctx-item-edit')).toBeInTheDocument();
         expect(screen.getByTestId('ctx-item-delete')).toBeInTheDocument();
@@ -173,7 +173,7 @@ describe('CanvasPane', () => {
     });
 
     it('edits a node from its context menu', () => {
-        render(<CanvasPane controller={controllerStub()} />);
+        render(<CanvasPane controller={controllerStub()} colorMode="light" />);
         fireEvent.click(screen.getByTestId('ctx-node'));
         fireEvent.click(screen.getByTestId('ctx-item-edit'));
         expect(screen.getByTestId('modal-node').textContent).toBe('a');
@@ -182,7 +182,7 @@ describe('CanvasPane', () => {
 
     it('deletes a node from its context menu', () => {
         const controller = controllerStub();
-        render(<CanvasPane controller={controller} />);
+        render(<CanvasPane controller={controller} colorMode="light" />);
         fireEvent.click(screen.getByTestId('ctx-node'));
         fireEvent.click(screen.getByTestId('ctx-item-delete'));
         expect(controller.deleteNode).toHaveBeenCalledWith('a');
@@ -190,7 +190,7 @@ describe('CanvasPane', () => {
 
     it('clears a node\'s connections from its context menu', () => {
         const controller = controllerStub();
-        render(<CanvasPane controller={controller} />);
+        render(<CanvasPane controller={controller} colorMode="light" />);
         fireEvent.click(screen.getByTestId('ctx-node'));
         fireEvent.click(screen.getByTestId('ctx-item-clear'));
         expect(controller.clearConnections).toHaveBeenCalledWith('a');
@@ -198,7 +198,7 @@ describe('CanvasPane', () => {
 
     it('deletes a wire from an edge context menu', () => {
         const controller = controllerStub();
-        render(<CanvasPane controller={controller} />);
+        render(<CanvasPane controller={controller} colorMode="light" />);
         fireEvent.click(screen.getByTestId('ctx-edge'));
         fireEvent.click(screen.getByTestId('ctx-item-delete-edge'));
         expect(controller.deleteEdge).toHaveBeenCalledWith({ source: 'a', target: 'b' });
@@ -206,18 +206,19 @@ describe('CanvasPane', () => {
 
     it('ignores an edge context-menu delete whose id does not parse', () => {
         const controller = controllerStub();
-        render(<CanvasPane controller={controller} />);
+        render(<CanvasPane controller={controller} colorMode="light" />);
         fireEvent.click(screen.getByTestId('ctx-edge-bad'));
         fireEvent.click(screen.getByTestId('ctx-item-delete-edge'));
         expect(controller.deleteEdge).not.toHaveBeenCalled();
     });
 
     it('dismisses the context menu', () => {
-        render(<CanvasPane controller={controllerStub()} />);
+        render(<CanvasPane controller={controllerStub()} colorMode="light" />);
         fireEvent.click(screen.getByTestId('ctx-node'));
         fireEvent.click(screen.getByTestId('ctx-dismiss'));
         expect(screen.queryByTestId('context-menu')).not.toBeInTheDocument();
     });
 });
+
 
 

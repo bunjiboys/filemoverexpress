@@ -1,13 +1,16 @@
 import type { Connection, Edge, Node } from '@xyflow/react';
 import type { WorkflowEdge, WorkflowGraph } from '../workflow/graph';
 import type { PositionedNode } from '../layout/layout';
+import type { ColorMode } from '../app/use-color-mode';
 
-// The data a custom workflow node renders: its step type (drives chrome/label) and
-// its display name. Everything else about the node (its `with` payload) is edited in
-// the property modal, not shown on the canvas chrome, so it is not projected here.
+// The data a custom workflow node renders: its step type (drives chrome/label), its
+// display name, and the active color mode (so the node can theme itself; Cloudscape
+// container CSS variables do not resolve inside React Flow's DOM). The `with` payload
+// is edited in the modal, not shown on the chrome, so it is not projected here.
 export interface WorkflowNodeData extends Record<string, unknown> {
     stepType: string;
     name: string | undefined;
+    colorMode: ColorMode;
 }
 
 // The single React Flow node type key; one custom component handles every step type
@@ -18,8 +21,13 @@ export type FlowNode = Node<WorkflowNodeData>;
 
 // Project the model nodes (plus their computed positions) into React Flow nodes.
 // Positions are builder-only state overlaid here, never part of the model/file
-// (docs sections 8-9). A node with no computed position falls back to the origin.
-export function toFlowNodes(graph: WorkflowGraph, positions: PositionedNode[]): FlowNode[] {
+// (docs sections 8-9). A node with no computed position falls back to the origin. The
+// color mode rides on each node's data so the node component can theme itself.
+export function toFlowNodes(
+    graph: WorkflowGraph,
+    positions: PositionedNode[],
+    colorMode: ColorMode,
+): FlowNode[] {
     const byId = new Map(positions.map((p) => [p.id, p]));
     return graph.nodes.map((n) => {
         const pos = byId.get(n.id);
@@ -27,7 +35,7 @@ export function toFlowNodes(graph: WorkflowGraph, positions: PositionedNode[]): 
             id: n.id,
             type: WORKFLOW_NODE_TYPE,
             position: { x: pos?.x ?? 0, y: pos?.y ?? 0 },
-            data: { stepType: n.type, name: n.name },
+            data: { stepType: n.type, name: n.name, colorMode },
         };
     });
 }

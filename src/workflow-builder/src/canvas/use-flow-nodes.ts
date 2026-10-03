@@ -3,6 +3,7 @@ import { applyNodeChanges, type OnNodesChange } from '@xyflow/react';
 import { toFlowNodes, type FlowNode } from './flow-mapping';
 import { applyNodeChangesToModel } from './flow-change-handlers';
 import type { WorkflowGraphController } from './use-workflow-graph';
+import type { ColorMode } from '../app/use-color-mode';
 
 export interface FlowNodesController {
     nodes: FlowNode[];
@@ -15,16 +16,21 @@ export interface FlowNodesController {
 // never "initialized" and cannot be dragged. This hook holds those React-Flow-owned
 // view fields (measured, selected, dragging) in local state via applyNodeChanges,
 // while the graph model (the controller) stays authoritative for structure: it
-// reconciles local nodes with the model when the model's ids/positions/data change,
-// and forwards position (drag) and remove changes to the model.
-export function useFlowNodes(controller: WorkflowGraphController): FlowNodesController {
+// reconciles local nodes with the model when the model's ids/positions/data (including
+// the color mode carried on data) change, and forwards position (drag) and remove
+// changes to the model.
+export function useFlowNodes(
+    controller: WorkflowGraphController,
+    colorMode: ColorMode,
+): FlowNodesController {
     const [nodes, setNodes] = useState<FlowNode[]>(() =>
-        toFlowNodes(controller.graph, controller.positions),
+        toFlowNodes(controller.graph, controller.positions, colorMode),
     );
     // A signature of the model's node projection; the reconciliation effect only runs
     // when it changes, so applying a local-only change (dimensions, selection) does
-    // not re-trigger a model->local sync and loop.
-    const projected = toFlowNodes(controller.graph, controller.positions);
+    // not re-trigger a model->local sync and loop. The color mode is part of the data,
+    // so a mode switch re-themes nodes.
+    const projected = toFlowNodes(controller.graph, controller.positions, colorMode);
     const signature = projectionSignature(projected);
     const lastSignature = useRef(signature);
 
@@ -68,6 +74,6 @@ function reconcile(current: FlowNode[], projected: FlowNode[]): FlowNode[] {
 // local-only change (dimensions/selection) does not change it.
 function projectionSignature(projected: FlowNode[]): string {
     return projected
-        .map((n) => `${n.id}:${n.position.x},${n.position.y}:${n.data.stepType}:${n.data.name ?? ''}`)
+        .map((n) => `${n.id}:${n.position.x},${n.position.y}:${n.data.stepType}:${n.data.name ?? ''}:${n.data.colorMode}`)
         .join('|');
 }

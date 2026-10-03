@@ -54,13 +54,13 @@ beforeEach(() => {
 // (position on drag, remove) to the model.
 describe('useFlowNodes', () => {
     it('projects the model into initial flow nodes', () => {
-        const { result } = renderHook(() => useFlowNodes(controller));
+        const { result } = renderHook(() => useFlowNodes(controller, 'light'));
         expect(result.current.nodes.map((n) => n.id)).toEqual(['a', 'b']);
-        expect(result.current.nodes[0].data).toEqual({ stepType: 'Job', name: 'Copy' });
+        expect(result.current.nodes[0].data).toEqual({ stepType: 'Job', name: 'Copy', colorMode: 'light' });
     });
 
     it('applies React Flow changes to its local nodes so init/measurement is kept', () => {
-        const { result } = renderHook(() => useFlowNodes(controller));
+        const { result } = renderHook(() => useFlowNodes(controller, 'light'));
         act(() => {
             result.current.onNodesChange([
                 { id: 'a', type: 'dimensions', dimensions: { width: 150, height: 40 }, setAttributes: true },
@@ -75,7 +75,7 @@ describe('useFlowNodes', () => {
     });
 
     it('forwards a position change to the model', () => {
-        const { result } = renderHook(() => useFlowNodes(controller));
+        const { result } = renderHook(() => useFlowNodes(controller, 'light'));
         act(() => {
             result.current.onNodesChange([{ id: 'a', type: 'position', position: { x: 5, y: 6 } }]);
         });
@@ -83,7 +83,7 @@ describe('useFlowNodes', () => {
     });
 
     it('forwards a remove change to the model', () => {
-        const { result } = renderHook(() => useFlowNodes(controller));
+        const { result } = renderHook(() => useFlowNodes(controller, 'light'));
         act(() => {
             result.current.onNodesChange([{ id: 'b', type: 'remove' }]);
         });
@@ -91,7 +91,7 @@ describe('useFlowNodes', () => {
     });
 
     it('re-syncs local nodes when the model adds a node', () => {
-        const { result, rerender } = renderHook((c: WorkflowGraphController) => useFlowNodes(c), {
+        const { result, rerender } = renderHook((c: WorkflowGraphController) => useFlowNodes(c, 'light'), {
             initialProps: controller,
         });
         const grown = controllerStub(
@@ -109,7 +109,7 @@ describe('useFlowNodes', () => {
     });
 
     it('re-syncs local nodes when the model removes a node', () => {
-        const { result, rerender } = renderHook((c: WorkflowGraphController) => useFlowNodes(c), {
+        const { result, rerender } = renderHook((c: WorkflowGraphController) => useFlowNodes(c, 'light'), {
             initialProps: controller,
         });
         const shrunk = controllerStub({ nodes: [node('a')], edges: [] }, [{ id: 'a', x: 0, y: 0 }]);
@@ -118,7 +118,7 @@ describe('useFlowNodes', () => {
     });
 
     it('adopts new positions when the model re-lays out', () => {
-        const { result, rerender } = renderHook((c: WorkflowGraphController) => useFlowNodes(c), {
+        const { result, rerender } = renderHook((c: WorkflowGraphController) => useFlowNodes(c, 'light'), {
             initialProps: controller,
         });
         const relaid = controllerStub(
@@ -131,7 +131,7 @@ describe('useFlowNodes', () => {
     });
 
     it('reflects a data change (node renamed in the model)', () => {
-        const { result, rerender } = renderHook((c: WorkflowGraphController) => useFlowNodes(c), {
+        const { result, rerender } = renderHook((c: WorkflowGraphController) => useFlowNodes(c, 'light'), {
             initialProps: controller,
         });
         const renamed = controllerStub(
@@ -140,7 +140,9 @@ describe('useFlowNodes', () => {
         );
         rerender(renamed);
         const a = result.current.nodes.find((n) => n.id === 'a');
-        expect(a?.data).toEqual({ stepType: 'Job', name: 'Renamed' });
+        expect(a?.data).toEqual({ stepType: 'Job', name: 'Renamed', colorMode: 'light' });
     });
 });
+
+
 
