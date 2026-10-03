@@ -1,8 +1,11 @@
 # Workflow Builder App (Research / Design)
 
-Status: Research / proposed. Nothing in this document is implemented yet. This is a
-companion to `docs/Workflow-File-Format.md` and depends on that format being the
-single source of truth for what a node can be and how a graph serializes.
+Status: In progress. The design below is implemented through Step 10 of the build
+order (section 16) on branch `feat/workflow-builder-scaffold`; only the Tier-2
+Playwright E2E suite (Step 11) remains. See "Implementation status" at the end of
+section 16 for what has shipped. This is a companion to `docs/Workflow-File-Format.md`
+and depends on that format being the single source of truth for what a node can be and
+how a graph serializes.
 
 ## 1. What this is
 
@@ -710,8 +713,8 @@ All v1 design decisions below are settled.
   all `@stylistic` and TS/core rules carried over verbatim, every Angular-specific
   piece removed, React correctness + JSX a11y added. See section 13.
 
-All v1 design decisions are now settled; the doc is ready to drive scaffolding when
-implementation starts.
+All v1 design decisions are settled, and implementation has followed them through
+Step 10 of the build order (section 16); see "Implementation status" there.
 
 ### Deferred to later implementation
 
@@ -756,49 +759,87 @@ Logic core (pure TypeScript):
 
 0. **Schema bundled** - prerequisite, done. `src/schema/v1.json` + the loader
    (step types derived from the schema, ajv validation).
-1. **Node descriptors**: `Job` (done), then `Checksum`, `Sleep`, `InventoryReport`.
+1. **Node descriptors** (done): `Job`, `Checksum`, `Sleep`, `InventoryReport`.
    Each maps a step type's `with` to a canvas node and back (`fromStep`/`toStep`),
    with its own nuance tested (Checksum `writeMhl` requires `mhlOutput`, Sleep
    duration-string shape, InventoryReport's reduced field set with no `prefix`).
-2. **Descriptor registry** keyed by the schema's step-type enum (`STEP_TYPES`), so a
-   new format step type becomes a palette node by registering a descriptor. This is
-   the seam the palette and the graph serializer both consume.
-3. **Graph model + serializer** (`workflow/`) - the keystone. `dependsOn` lives here
-   (descriptors deliberately do not own it): `toWorkflow` walks nodes through their
-   descriptors and reconstructs `dependsOn` from edges; `fromWorkflow` is the import
-   direction; the round-trip invariant is a `@fast-check` property test; plus the
-   graph validation the schema cannot express (unique ids, acyclicity, dependsOn
+2. **Descriptor registry** (done) keyed by the schema's step-type enum (`STEP_TYPES`),
+   so a new format step type becomes a palette node by registering a descriptor. This
+   is the seam the palette and the graph serializer both consume.
+3. **Graph model + serializer** (`workflow/`, done) - the keystone. `dependsOn` lives
+   here (descriptors deliberately do not own it): `toWorkflow` walks nodes through
+   their descriptors and reconstructs `dependsOn` from edges; `fromWorkflow` is the
+   import direction; the round-trip invariant is a `@fast-check` property test; plus
+   the graph validation the schema cannot express (unique ids, acyclicity, dependsOn
    integrity).
-4. **Parameters + defaults resolution** and `${params.x}` substitution: the
+4. **Parameters + defaults resolution** (done) and `${params.x}` substitution: the
    template-only lint and the resolve-then-validate pass. Independent of the canvas.
 
 Layout:
 
-5. **ELK layered layout + flow direction** (`layout/`): wrap `elkjs`, LR/TB
+5. **ELK layered layout + flow direction** (`layout/`, done): wrap `elkjs`, LR/TB
    parameter, the fork/join crossing-minimization settings (section 8). Testable on
    computed positions without rendering. Operates on the graph model, so it follows
    it.
 
 UI, cheapest-first:
 
-6. **Schema-driven property form** (`modal/`), rendered with Cloudscape controls -
-   generated from a step type's `with` `$defs`. Mostly unit-testable, so before the
+6. **Schema-driven property form** (`modal/`, done), rendered with Cloudscape controls
+   - generated from a step type's `with` `$defs`. Mostly unit-testable, so before the
    canvas.
-7. **Cloudscape app shell + view-mode control** (`app/`): AppLayout, the
+7. **Cloudscape app shell + view-mode control** (`app/`, done): AppLayout, the
    Visual/Editor/Split segmented control, panels. Thin composition.
-8. **Editor pane** (`editor/`): Cloudscape CodeEditor (Ace, lazy-loaded) over
+8. **Editor pane** (`editor/`, done): Cloudscape CodeEditor (Ace, lazy-loaded) over
    YAML/JSON, with the model<->text sync and schema-driven annotations. After the
    shell; lower priority than the canvas since Visual is the primary mode.
-9. **React Flow canvas** (`canvas/`): drag, port-to-port wiring, cycle prevention at
-   draw time, selection. Last of the build - it consumes descriptors, the graph
+9. **React Flow canvas** (`canvas/`, done): drag, port-to-port wiring, cycle prevention
+   at draw time, selection. Last of the build - it consumes descriptors, the graph
    model, the layout engine and the modal, and it is the piece gated on Playwright
    rather than fast unit tests.
-10. **Import/Export wiring** (`io/`) + browser file dialogs: connect the file
+10. **Import/Export wiring** (`io/`, done) + browser file dialogs: connect the file
     open/save abstraction to the serializer. Mostly glue once 3 and 9 exist.
-11. **Playwright E2E suite**: the Tier-2 flows (drag/wire/zoom/modal/view-mode,
+11. **Playwright E2E suite** (pending): the Tier-2 flows (drag/wire/zoom/modal/view-mode,
     export-then-reimport equality) once the canvas is interactive.
 
 Rationale: logic before pixels means the canvas is a view over already-proven state;
 the graph model (3) is third because everything visual is a projection of it; the
 canvas is last because it is the integration point and the only part on the slow
 test loop.
+
+### Implementation status
+
+Steps 0-10 are implemented on branch `feat/workflow-builder-scaffold`. The Tier-1
+Vitest suite is green at the 100% per-file coverage gate (lines/functions/branches/
+statements), and `tsc --noEmit`, ESLint and `vite build` all pass.
+
+Shipped beyond the base build-order items, as UI iterations:
+
+- **Canvas interactions**: node drag/select/delete; double-click a node to open the
+  schema-driven property modal; right-click context menus (node: Edit / Delete step /
+  Clear connections; edge: Delete connection); cycle prevention at draw time via
+  `isValidConnection`. React Flow runs in controlled mode through a `useFlowNodes`
+  hook so nodes initialize and drag; fit-to-view runs on load and after every layout
+  pass, gated on `useNodesInitialized` so the first-load fit does not race the async
+  ELK layout.
+- **Views**: Visual / Editor / Split with a resizable divider whose ratio is lifted to
+  app state (session-lived, default 60/40, not persisted) and rendered as an overlay
+  that does not reflow the panes. Editor<->model sync with an origin guard; schema
+  errors are mapped to their source line/column via the `yaml` parser's LineCounter.
+- **Document panel**: a right-side overlay (not the pushed AppLayout tools drawer)
+  editing metadata (name/description), parameters (add/remove/rename + type), and
+  defaults (JSON), sized `min(40vw, 560px)`.
+- **Theming/polish**: nodes, context menu and document drawer carry explicit per-mode
+  surface colors (Cloudscape container CSS variables do not resolve inside React
+  Flow's DOM); React Flow's MiniMap and Controls are themed for dark mode; the app
+  sans-serif font is applied to canvas chrome; dependency wires are 2px. A realistic
+  default workflow (a fork/join media-ingest pipeline) seeds the page on load.
+
+Coverage exclusions (justified in-code, listed in `vitest.config.ts`): `main.tsx`
+(DOM mount), `editor/lazy-code-editor.tsx` (Ace/CodeEditor glue), and
+`io/file-access.ts` (browser file-dialog + download glue). Each is driven only through
+the DOM and is consumed via a mock in tests.
+
+**Remaining (Step 11)**: the Playwright Tier-2 E2E suite. Deferred to macOS because
+the Windows `playwright-cli` crashes on its first window open per invocation
+(`UV_HANDLE_CLOSING`), which makes an authored E2E loop impractical here; the suite
+will be written and run on a Mac.
