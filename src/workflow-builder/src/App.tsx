@@ -20,28 +20,96 @@ import { graphToText, textToGraph } from './app/model-text-sync';
 import { browserFileAccess, type OpenedFile } from './io/file-access';
 import { importWorkflow, exportWorkflow } from './io/io-actions';
 import { useFileDrop } from './io/use-file-drop';
-import { API_VERSION, KIND, type WorkflowGraph } from './workflow/graph';
+import { type WorkflowGraph } from './workflow/graph';
 
-// A minimal starting document so both views open with something valid. The literal
-// graph and its serialized text are the SAME document in two forms, kept adjacent so
-// they cannot drift; building the graph as a literal (rather than parsing the text)
-// avoids an unreachable parse-failure branch at module load.
-const INITIAL_GRAPH: WorkflowGraph = {
-    nodes: [{ id: 'step-1', type: 'Sleep', with: { duration: '30s' }, continueOnError: false }],
-    edges: [],
+// The default workflow the page opens with: a realistic nightly media-ingest pipeline
+// shaped as a fork/join diamond (ingest -> verify -> {settle, inventory} -> archive)
+// with parameters, defaults and metadata, so the canvas and editor open with something
+// substantial to explore. The literal graph and its serialized text are the SAME
+// document in two forms, kept adjacent so they cannot drift (and so there is no
+// unreachable parse-failure branch at module load). It is schema- and structure-valid.
+export const INITIAL_GRAPH: WorkflowGraph = {
+    metadata: {
+        name: 'Nightly media ingest and archive',
+        description: 'Download camera media, verify it, inventory it, then archive to cold storage.',
+        labels: { team: 'post-production', tier: 'nightly' },
+    },
+    parameters: [
+        { name: 'transferProfile', type: 'string', required: true, default: 'default' }, { name: 'archivePrefix', type: 'string', required: false, default: 'archive/' },
+    ],
+    defaults: { force: false },
+    nodes: [
+        {
+            id: 'ingest',
+            type: 'Job',
+            name: 'Ingest from capture bucket',
+            continueOnError: false,
+            with: {
+                direction: 'download',
+                transferProfile: '${params.transferProfile}',
+                sources: ['s3://capture/incoming/'],
+                destination: '/mnt/ingest',
+            },
+        },
+        {
+            id: 'verify',
+            type: 'Checksum',
+            name: 'Verify + write MHL',
+            continueOnError: false,
+            with: {
+                sources: ['/mnt/ingest'],
+                algorithm: 'xxh3',
+                recursive: true,
+                writeMhl: true,
+                mhlOutput: '/mnt/ingest/ingest.mhl',
+                failOnMismatch: true,
+            },
+        },
+        {
+            id: 'settle',
+            type: 'Sleep',
+            name: 'Settle before archive',
+            continueOnError: false,
+            with: { duration: '30s' },
+        },
+        {
+            id: 'inventory',
+            type: 'InventoryReport',
+            name: 'Inventory capture bucket',
+            continueOnError: false,
+            with: {
+                transferProfile: '${params.transferProfile}',
+                outputFormat: 'csv',
+                pretty: true,
+                includeChecksums: true,
+            },
+        },
+        {
+            id: 'archive',
+            type: 'Job',
+            name: 'Archive to cold storage',
+            continueOnError: false,
+            with: {
+                direction: 'upload',
+                transferProfile: '${params.transferProfile}',
+                sources: ['/mnt/ingest'],
+                destination: 's3://archive-cold',
+                uploadBasePath: '${params.archivePrefix}',
+            },
+        },
+    ],
+    edges: [
+        { source: 'ingest', target: 'verify' },
+        { source: 'verify', target: 'settle' },
+        { source: 'verify', target: 'inventory' },
+        { source: 'settle', target: 'archive' },
+        { source: 'inventory', target: 'archive' },
+    ],
 };
 
-const INITIAL_TEXT = [
-    `apiVersion: ${API_VERSION}`,
-    `kind: ${KIND}`,
-    'spec:',
-    '  steps:',
-    '    - id: step-1',
-    '      type: Sleep',
-    '      with:',
-    '        duration: 30s',
-    '',
-].join('\n');
+// The canonical text form of the default graph, derived from it so the two can never
+// drift (the drift guard in App.test asserts this derivation).
+export const INITIAL_TEXT = graphToText(INITIAL_GRAPH, 'yaml');
 
 // Thin composition root (docs section 13): it owns the single-source-of-truth graph
 // (via useWorkflowGraph), the editor document text, and the view/color modes, and

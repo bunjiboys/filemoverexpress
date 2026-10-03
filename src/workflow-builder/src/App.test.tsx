@@ -31,7 +31,7 @@ vi.mock('./canvas/canvas-pane', () => ({
                 <button type="button" data-testid="canvas-add" onClick={() => controller.addNode('Job')}>
                     add
                 </button>
-                <button type="button" data-testid="canvas-delete" onClick={() => controller.deleteNode('step-1')}>
+                <button type="button" data-testid="canvas-delete" onClick={() => controller.deleteNode('ingest')}>
                     delete
                 </button>
             </div>
@@ -48,7 +48,8 @@ vi.mock('./io/io-actions', () => ({
     exportWorkflow: (...args: unknown[]) => exportWorkflow(...args),
 }));
 
-import { App } from './App';
+import { App, INITIAL_GRAPH, INITIAL_TEXT } from './App';
+import { graphToText } from './app/model-text-sync';
 
 describe('App', () => {
     beforeEach(() => {
@@ -116,18 +117,31 @@ describe('App', () => {
         });
     });
 
-    it('seeds the canvas controller from the initial document', () => {
-        render(<App />);
-        expect(seenController?.graph.nodes.map((n) => n.type)).toEqual(['Sleep']);
+    it('keeps the seeded text and graph in sync (no drift)', () => {
+        expect(INITIAL_TEXT).toBe(graphToText(INITIAL_GRAPH, 'yaml'));
     });
 
-    it('re-serializes the editor text when a canvas delete empties the graph', async () => {
+    it('seeds the canvas controller from the initial document', () => {
+        render(<App />);
+        expect(seenController?.graph.nodes.map((n) => n.id))
+            .toEqual(['ingest',
+                'verify',
+                'settle',
+                'inventory',
+                'archive']);
+    });
+
+    it('re-serializes the editor text when a canvas delete removes a node', async () => {
         const { container } = render(<App />);
+        // The default workflow contains an `ingest` step; deleting it drops it from the
+        // re-serialized editor text (and its dependents' dependsOn).
+        const before = screen.getByTestId('canvas-add'); // ensure canvas mounted
+        expect(before).toBeInTheDocument();
         screen.getByTestId('canvas-delete').click();
         createWrapper(container).findSegmentedControl()!.findSegmentById('split')!.click();
         await waitFor(() => {
             const editor = screen.getByLabelText('editor-yaml') as HTMLTextAreaElement;
-            expect(editor.value).not.toContain('type: Sleep');
+            expect(editor.value).not.toContain('id: ingest');
         });
     });
 
@@ -155,8 +169,12 @@ describe('App', () => {
         createWrapper(container).findSegmentedControl()!.findSegmentById('split')!.click();
         const editor = screen.getByLabelText('editor-yaml') as HTMLTextAreaElement;
         fireEvent.change(editor, { target: { value: 'kind: : : not valid : :' } });
-        // The model holds its last valid state (the seeded Sleep step).
-        expect(seenController?.graph.nodes.map((n) => n.type)).toEqual(['Sleep']);
+        // The model holds its last valid state (the seeded default workflow).
+        expect(seenController?.graph.nodes.map((n) => n.id)).toEqual(['ingest',
+            'verify',
+            'settle',
+            'inventory',
+            'archive']);
     });
 
     it('exports the current workflow when Export is clicked', () => {
@@ -196,7 +214,11 @@ describe('App', () => {
         // No flash, model unchanged.
         await waitFor(() => expect(importWorkflow).toHaveBeenCalled());
         expect(createWrapper(container).findFlashbar()).toBeNull();
-        expect(seenController?.graph.nodes.map((n) => n.type)).toEqual(['Sleep']);
+        expect(seenController?.graph.nodes.map((n) => n.id)).toEqual(['ingest',
+            'verify',
+            'settle',
+            'inventory',
+            'archive']);
     });
 
     it('dismisses the import-error flash', async () => {
@@ -208,3 +230,4 @@ describe('App', () => {
         await waitFor(() => expect(createWrapper(container).findFlashbar()).toBeNull());
     });
 });
+
