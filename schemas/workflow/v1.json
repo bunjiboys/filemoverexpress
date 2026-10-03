@@ -1,0 +1,461 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://fme.dev/schemas/workflow/v1.json",
+    "title": "FME Workflow v1",
+    "description": "File Mover Express Workflow file format, version fme.dev/workflow/v1. A versioned, step-based description of one or more transfers that the FME daemon validates and executes as a single run. See docs/Workflow-File-Format.md.",
+    "type": "object",
+    "required": [
+        "apiVersion",
+        "kind",
+        "spec"
+    ],
+    "additionalProperties": false,
+    "properties": {
+        "apiVersion": {
+            "description": "Whole-document contract version. Only v1 is accepted by this schema.",
+            "const": "fme.dev/workflow/v1"
+        },
+        "kind": {
+            "const": "Workflow"
+        },
+        "metadata": {
+            "$ref": "#/$defs/metadata"
+        },
+        "spec": {
+            "$ref": "#/$defs/spec"
+        }
+    },
+    "$defs": {
+        "metadata": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "name": {
+                    "description": "Identifies the workflow.",
+                    "type": "string",
+                    "minLength": 1
+                },
+                "description": {
+                    "description": "Free text.",
+                    "type": "string"
+                },
+                "labels": {
+                    "description": "Advisory string-to-string metadata. Does not affect scheduling, step behavior, or run status.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "spec": {
+            "type": "object",
+            "required": [
+                "steps"
+            ],
+            "additionalProperties": false,
+            "properties": {
+                "parameters": {
+                    "description": "Optional typed, constrained inputs referenced with ${params.name} inside step `with` values.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/parameter"
+                    }
+                },
+                "defaults": {
+                    "description": "Optional map merged into each step's `with` before the step's own `with` is applied. May contain ${params.name} references.",
+                    "type": "object"
+                },
+                "steps": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "$ref": "#/$defs/step"
+                    }
+                }
+            }
+        },
+        "parameter": {
+            "type": "object",
+            "required": [
+                "name",
+                "type"
+            ],
+            "additionalProperties": false,
+            "properties": {
+                "name": {
+                    "description": "Parameter name, referenced as ${params.<name>}.",
+                    "type": "string",
+                    "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                },
+                "type": {
+                    "enum": [
+                        "string",
+                        "int",
+                        "float",
+                        "bool",
+                        "enum"
+                    ]
+                },
+                "required": {
+                    "type": "boolean",
+                    "default": false
+                },
+                "default": {
+                    "description": "Default value; must be of the parameter's own type (enforced by the validator)."
+                },
+                "pattern": {
+                    "description": "RE2 regex the value must fully match. string only.",
+                    "type": "string"
+                },
+                "min": {
+                    "description": "Inclusive lower bound. int and float only.",
+                    "type": "number"
+                },
+                "max": {
+                    "description": "Inclusive upper bound. int and float only.",
+                    "type": "number"
+                },
+                "values": {
+                    "description": "Allowed string values. Required for enum.",
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            },
+            "allOf": [
+                {
+                    "if": {
+                        "properties": {
+                            "type": {
+                                "const": "enum"
+                            }
+                        }
+                    },
+                    "then": {
+                        "required": [
+                            "values"
+                        ]
+                    },
+                    "else": {
+                        "not": {
+                            "required": [
+                                "values"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "if": {
+                        "properties": {
+                            "type": {
+                                "const": "string"
+                            }
+                        }
+                    },
+                    "else": {
+                        "not": {
+                            "required": [
+                                "pattern"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "if": {
+                        "not": {
+                            "properties": {
+                                "type": {
+                                    "enum": [
+                                        "int",
+                                        "float"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "then": {
+                        "allOf": [
+                            {
+                                "not": {
+                                    "required": [
+                                        "min"
+                                    ]
+                                }
+                            },
+                            {
+                                "not": {
+                                    "required": [
+                                        "max"
+                                    ]
+                                }
+                            }
+                        ]
+                    }
+                }
+            ]
+        },
+        "stepId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+        },
+        "step": {
+            "type": "object",
+            "required": [
+                "id",
+                "type",
+                "with"
+            ],
+            "properties": {
+                "id": {
+                    "description": "Stable, unique-within-the-file step id. Referenced by dependsOn. Not templated.",
+                    "$ref": "#/$defs/stepId"
+                },
+                "name": {
+                    "description": "Human-readable label. For Job steps maps to Job.Name.",
+                    "type": "string"
+                },
+                "type": {
+                    "description": "Discriminator selecting the payload schema and the executor.",
+                    "enum": [
+                        "Job",
+                        "Checksum",
+                        "Sleep",
+                        "InventoryReport"
+                    ]
+                },
+                "with": {
+                    "type": "object"
+                },
+                "dependsOn": {
+                    "description": "Step ids that must complete before this step is eligible. Not templated. Reference integrity, acyclicity, and id-uniqueness are enforced by the validator.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/stepId"
+                    }
+                },
+                "continueOnError": {
+                    "description": "If true, a failure here does not fail the run and does not abort steps that do not depend on it.",
+                    "type": "boolean",
+                    "default": false
+                }
+            },
+            "allOf": [
+                {
+                    "if": {
+                        "properties": {
+                            "type": {
+                                "const": "Job"
+                            }
+                        }
+                    },
+                    "then": {
+                        "properties": {
+                            "with": {
+                                "$ref": "#/$defs/JobStep"
+                            }
+                        }
+                    }
+                },
+                {
+                    "if": {
+                        "properties": {
+                            "type": {
+                                "const": "Checksum"
+                            }
+                        }
+                    },
+                    "then": {
+                        "properties": {
+                            "with": {
+                                "$ref": "#/$defs/ChecksumStep"
+                            }
+                        }
+                    }
+                },
+                {
+                    "if": {
+                        "properties": {
+                            "type": {
+                                "const": "Sleep"
+                            }
+                        }
+                    },
+                    "then": {
+                        "properties": {
+                            "with": {
+                                "$ref": "#/$defs/SleepStep"
+                            }
+                        }
+                    }
+                },
+                {
+                    "if": {
+                        "properties": {
+                            "type": {
+                                "const": "InventoryReport"
+                            }
+                        }
+                    },
+                    "then": {
+                        "properties": {
+                            "with": {
+                                "$ref": "#/$defs/InventoryReportStep"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "JobStep": {
+            "description": "Maps 1:1 to the internal jobmanagertypes.JobConfig.",
+            "type": "object",
+            "required": [
+                "direction",
+                "transferProfile",
+                "sources",
+                "destination"
+            ],
+            "additionalProperties": false,
+            "properties": {
+                "direction": {
+                    "enum": [
+                        "upload",
+                        "download"
+                    ]
+                },
+                "transferProfile": {
+                    "description": "Resolved to a TransferProfile by name on the executing daemon.",
+                    "type": "string",
+                    "minLength": 1
+                },
+                "sources": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    }
+                },
+                "destination": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "uploadBasePath": {
+                    "description": "Upload only.",
+                    "type": "string"
+                },
+                "s3PrefixToTrim": {
+                    "description": "Download only.",
+                    "type": "string"
+                },
+                "force": {
+                    "type": "boolean",
+                    "default": false
+                }
+            }
+        },
+        "ChecksumStep": {
+            "description": "Generates checksums for local paths via core/checksums, optionally writing an MHL.",
+            "type": "object",
+            "required": [
+                "sources"
+            ],
+            "additionalProperties": false,
+            "properties": {
+                "sources": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    }
+                },
+                "algorithm": {
+                    "description": "Workflow-level algorithm token; md5 maps to the internal md5-hex.",
+                    "enum": [
+                        "md5",
+                        "xxhash",
+                        "xxhash64",
+                        "xxh3"
+                    ],
+                    "default": "xxh3"
+                },
+                "recursive": {
+                    "type": "boolean",
+                    "default": true
+                },
+                "writeMhl": {
+                    "type": "boolean",
+                    "default": false
+                },
+                "mhlOutput": {
+                    "description": "Output path for the MHL. Required when writeMhl is true (enforced below).",
+                    "type": "string"
+                },
+                "failOnMismatch": {
+                    "type": "boolean",
+                    "default": false
+                }
+            },
+            "if": {
+                "properties": {
+                    "writeMhl": {
+                        "const": true
+                    }
+                },
+                "required": [
+                    "writeMhl"
+                ]
+            },
+            "then": {
+                "required": [
+                    "mhlOutput"
+                ]
+            }
+        },
+        "SleepStep": {
+            "description": "A static, cancellable wait.",
+            "type": "object",
+            "required": [
+                "duration"
+            ],
+            "additionalProperties": false,
+            "properties": {
+                "duration": {
+                    "description": "A Go time.ParseDuration string, for example 30s, 5m, 1h30m. Must be positive; parse validity and positivity are enforced by the validator.",
+                    "type": "string",
+                    "pattern": "^([0-9]+(\\.[0-9]+)?(ns|us|\u00b5s|ms|s|m|h))+$"
+                }
+            }
+        },
+        "InventoryReportStep": {
+            "description": "Maps to inventorytypes.GenerateInventoryInput; the executor calls inventory.GenerateInventory in-process.",
+            "type": "object",
+            "required": [
+                "transferProfile"
+            ],
+            "additionalProperties": false,
+            "properties": {
+                "transferProfile": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "outputFormat": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "pretty": {
+                    "type": "boolean",
+                    "default": false
+                },
+                "includeChecksums": {
+                    "type": "boolean",
+                    "default": false
+                }
+            }
+        }
+    }
+}
