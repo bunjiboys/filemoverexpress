@@ -556,6 +556,16 @@ coverage number.
 - React Flow and Monaco do not fully render in jsdom, so Tier 1 tests the logic
   (descriptors, layout math, parse/validate, the model hook) directly and mocks React
   Flow/Monaco at their module boundary. Real canvas interaction is Tier 2's job.
+- **Cloudscape components are driven via Cloudscape's own test-utils, not raw
+  Testing Library queries.** Import `createWrapper` from
+  `@cloudscape-design/components/test-utils/dom` and use its component wrappers
+  (`findSelect`, `findInput`, `findCheckbox`, `findSegmentedControl`, `findAppLayout`,
+  `findAllFormFields`, ...) to find and operate controls. Cloudscape components (a
+  `Select` especially) render DOM that raw `getByLabelText`/`getByRole` queries cannot
+  reliably find or drive in jsdom; the wrappers expose the intended interactions
+  (`openDropdown()`, `selectOptionByValue()`, `setInputValue()`). Raw Testing Library
+  queries remain correct for plain semantic HTML a component renders itself (a `ul`,
+  a heading); the rule applies specifically to Cloudscape components.
 
 **Tier 2 - end-to-end canvas (Playwright):**
 
