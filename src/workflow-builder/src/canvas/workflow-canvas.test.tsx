@@ -12,6 +12,7 @@ const captured: {
     onEdgesChange?: (c: EdgeChange[]) => void;
     onConnect?: (c: Connection) => void;
     isValidConnection?: (c: Connection) => boolean;
+    onNodeDoubleClick?: (e: unknown, node: { id: string }) => void;
 } = {};
 
 vi.mock('@xyflow/react', () => ({
@@ -22,12 +23,14 @@ vi.mock('@xyflow/react', () => ({
         onEdgesChange: (c: EdgeChange[]) => void;
         onConnect: (c: Connection) => void;
         isValidConnection: (c: Connection) => boolean;
+        onNodeDoubleClick: (e: unknown, node: { id: string }) => void;
         children?: React.ReactNode;
     }) => {
         captured.onNodesChange = props.onNodesChange;
         captured.onEdgesChange = props.onEdgesChange;
         captured.onConnect = props.onConnect;
         captured.isValidConnection = props.isValidConnection;
+        captured.onNodeDoubleClick = props.onNodeDoubleClick;
         return (
             <div
                 data-testid="react-flow"
@@ -59,6 +62,7 @@ function controllerStub(overrides: Partial<WorkflowGraphController> = {}): Workf
         positions: [{ id: 'a', x: 0, y: 0 }, { id: 'b', x: 100, y: 0 }],
         addNode: vi.fn(),
         deleteNode: vi.fn(),
+        updateNode: vi.fn(),
         connect: vi.fn(),
         deleteEdge: vi.fn(),
         moveNode: vi.fn(),
@@ -71,14 +75,14 @@ function controllerStub(overrides: Partial<WorkflowGraphController> = {}): Workf
 
 describe('WorkflowCanvas', () => {
     it('projects the controller graph into React Flow nodes and edges', () => {
-        render(<WorkflowCanvas controller={controllerStub()} />);
+        render(<WorkflowCanvas controller={controllerStub()} onEditNode={vi.fn()} />);
         const rf = screen.getByTestId('react-flow');
         expect(rf).toHaveAttribute('data-node-count', '2');
         expect(rf).toHaveAttribute('data-edge-count', '1');
     });
 
     it('renders the background, controls and minimap chrome', () => {
-        render(<WorkflowCanvas controller={controllerStub()} />);
+        render(<WorkflowCanvas controller={controllerStub()} onEditNode={vi.fn()} />);
         expect(screen.getByTestId('rf-background')).toBeInTheDocument();
         expect(screen.getByTestId('rf-controls')).toBeInTheDocument();
         expect(screen.getByTestId('rf-minimap')).toBeInTheDocument();
@@ -86,35 +90,35 @@ describe('WorkflowCanvas', () => {
 
     it('routes node position changes to the controller', () => {
         const controller = controllerStub();
-        render(<WorkflowCanvas controller={controller} />);
+        render(<WorkflowCanvas controller={controller} onEditNode={vi.fn()} />);
         captured.onNodesChange!([{ id: 'a', type: 'position', position: { x: 9, y: 9 } }]);
         expect(controller.moveNode).toHaveBeenCalledWith('a', { x: 9, y: 9 });
     });
 
     it('routes edge removals to the controller', () => {
         const controller = controllerStub();
-        render(<WorkflowCanvas controller={controller} />);
+        render(<WorkflowCanvas controller={controller} onEditNode={vi.fn()} />);
         captured.onEdgesChange!([{ id: 'a->b', type: 'remove' }]);
         expect(controller.deleteEdge).toHaveBeenCalledWith({ source: 'a', target: 'b' });
     });
 
     it('routes a connection to the controller', () => {
         const controller = controllerStub();
-        render(<WorkflowCanvas controller={controller} />);
+        render(<WorkflowCanvas controller={controller} onEditNode={vi.fn()} />);
         captured.onConnect!({ source: 'a', target: 'b', sourceHandle: null, targetHandle: null });
         expect(controller.connect).toHaveBeenCalledWith({ source: 'a', target: 'b' });
     });
 
     it('delegates connection validity to the controller', () => {
         const controller = controllerStub();
-        render(<WorkflowCanvas controller={controller} />);
+        render(<WorkflowCanvas controller={controller} onEditNode={vi.fn()} />);
         captured.isValidConnection!({ source: 'a', target: 'b', sourceHandle: null, targetHandle: null });
         expect(controller.isValidConnection).toHaveBeenCalledWith({ source: 'a', target: 'b' });
     });
 
     it('ignores a connection missing an endpoint', () => {
         const controller = controllerStub();
-        render(<WorkflowCanvas controller={controller} />);
+        render(<WorkflowCanvas controller={controller} onEditNode={vi.fn()} />);
         captured.onConnect!({ source: null, target: 'b', sourceHandle: null, targetHandle: null } as never);
         captured.isValidConnection!({ source: 'a', target: null, sourceHandle: null, targetHandle: null } as never);
         expect(controller.connect).not.toHaveBeenCalled();
@@ -123,7 +127,7 @@ describe('WorkflowCanvas', () => {
 
     it('adds a node when a palette item is dropped on the canvas', () => {
         const controller = controllerStub();
-        render(<WorkflowCanvas controller={controller} />);
+        render(<WorkflowCanvas controller={controller} onEditNode={vi.fn()} />);
         const getData = vi.fn().mockReturnValue('Job');
         fireEvent.drop(screen.getByTestId('react-flow'), { dataTransfer: { getData } });
         expect(controller.addNode).toHaveBeenCalledWith('Job');
@@ -131,16 +135,24 @@ describe('WorkflowCanvas', () => {
 
     it('ignores a drop that carries no known step type', () => {
         const controller = controllerStub();
-        render(<WorkflowCanvas controller={controller} />);
+        render(<WorkflowCanvas controller={controller} onEditNode={vi.fn()} />);
         const getData = vi.fn().mockReturnValue('');
         fireEvent.drop(screen.getByTestId('react-flow'), { dataTransfer: { getData } });
         expect(controller.addNode).not.toHaveBeenCalled();
     });
 
     it('accepts dragover so the canvas is a valid drop target', () => {
-        render(<WorkflowCanvas controller={controllerStub()} />);
+        render(<WorkflowCanvas controller={controllerStub()} onEditNode={vi.fn()} />);
         // fireEvent.dragOver returns false when a listener called preventDefault.
         const notPrevented = fireEvent.dragOver(screen.getByTestId('react-flow'));
         expect(notPrevented).toBe(false);
     });
+
+    it('opens the editor for a double-clicked node', () => {
+        const onEditNode = vi.fn();
+        render(<WorkflowCanvas controller={controllerStub()} onEditNode={onEditNode} />);
+        captured.onNodeDoubleClick!({}, { id: 'a' });
+        expect(onEditNode).toHaveBeenCalledWith('a');
+    });
 });
+

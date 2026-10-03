@@ -25,6 +25,7 @@ function controllerStub(
         positions,
         addNode: vi.fn(),
         deleteNode: vi.fn(),
+        updateNode: vi.fn(),
         connect: vi.fn(),
         deleteEdge: vi.fn(),
         moveNode: vi.fn(),

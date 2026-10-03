@@ -4,6 +4,7 @@ import {
     deleteNode,
     connectNodes,
     deleteEdge,
+    updateNode,
     nextNodeId,
 } from './graph-mutations';
 import type { WorkflowGraph } from '../workflow/graph';
@@ -142,5 +143,47 @@ describe('deleteEdge', () => {
         };
         const result = deleteEdge(graph, { source: 'b', target: 'a' });
         expect(result.edges).toEqual([{ source: 'a', target: 'b' }]);
+    });
+});
+
+describe('updateNode', () => {
+    it('replaces a node payload (with) and name', () => {
+        const graph: WorkflowGraph = { nodes: [node('a')], edges: [] };
+        const result = updateNode(graph, 'a', { name: 'Pause', with: { duration: '5m' } });
+        expect(result.nodes[0]).toEqual({
+            id: 'a',
+            type: 'Sleep',
+            name: 'Pause',
+            with: { duration: '5m' },
+            continueOnError: false,
+        });
+    });
+
+    it('updates continueOnError when provided', () => {
+        const graph: WorkflowGraph = { nodes: [node('a')], edges: [] };
+        const result = updateNode(graph, 'a', { continueOnError: true });
+        expect(result.nodes[0].continueOnError).toBe(true);
+    });
+
+    it('leaves other nodes and edges untouched', () => {
+        const graph: WorkflowGraph = {
+            nodes: [node('a'), node('b')],
+            edges: [{ source: 'a', target: 'b' }],
+        };
+        const result = updateNode(graph, 'a', { with: { duration: '9s' } });
+        expect(result.nodes[1]).toEqual(node('b'));
+        expect(result.edges).toEqual([{ source: 'a', target: 'b' }]);
+    });
+
+    it('is a no-op for an unknown id', () => {
+        const graph: WorkflowGraph = { nodes: [node('a')], edges: [] };
+        const result = updateNode(graph, 'ghost', { name: 'x' });
+        expect(result.nodes).toEqual([node('a')]);
+    });
+
+    it('does not mutate the input graph', () => {
+        const graph: WorkflowGraph = { nodes: [node('a')], edges: [] };
+        updateNode(graph, 'a', { with: { duration: '1h' } });
+        expect(graph.nodes[0].with).toEqual({});
     });
 });

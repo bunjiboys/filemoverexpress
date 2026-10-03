@@ -18,6 +18,8 @@ import { readDroppedStepType } from './drop';
 
 export interface WorkflowCanvasProps {
     controller: WorkflowGraphController;
+    // Open the property editor for a node (double-click).
+    onEditNode: (id: string) => void;
 }
 
 // One custom node type handles every step type (it branches on data.stepType).
@@ -30,7 +32,7 @@ const NODE_TYPES: NodeTypes = { [WORKFLOW_NODE_TYPE]: WorkflowNodeView };
 // drop to add a node. Node view state is controlled through useFlowNodes so React Flow
 // can initialize and drag nodes; the real logic lives in the pure modules it composes
 // (flow-mapping, flow-change-handlers, use-flow-nodes, drop, cycle).
-export function WorkflowCanvas({ controller }: WorkflowCanvasProps): React.JSX.Element {
+export function WorkflowCanvas({ controller, onEditNode }: WorkflowCanvasProps): React.JSX.Element {
     const { nodes, onNodesChange } = useFlowNodes(controller);
     const edges = useMemo(() => toFlowEdges(controller.graph), [controller.graph]);
 
@@ -60,6 +62,11 @@ export function WorkflowCanvas({ controller }: WorkflowCanvasProps): React.JSX.E
         event.preventDefault();
     }, []);
 
+    const onNodeDoubleClick = useCallback(
+        (_event: React.MouseEvent, node: { id: string }) => onEditNode(node.id),
+        [onEditNode],
+    );
+
     return (
         <div style={{ width: '100%', height: '100%' }} onDrop={onDrop} onDragOver={onDragOver}>
             <ReactFlow
@@ -69,6 +76,7 @@ export function WorkflowCanvas({ controller }: WorkflowCanvasProps): React.JSX.E
                 onNodesChange={onNodesChange}
                 onEdgesChange={onEdgesChange}
                 onConnect={onConnect}
+                onNodeDoubleClick={onNodeDoubleClick}
                 isValidConnection={isValidConnection}
                 fitView
                 deleteKeyCode={['Backspace', 'Delete']}

@@ -7,6 +7,8 @@ import {
     connectNodes,
     deleteEdge as deleteEdgeReducer,
     deleteNode as deleteNodeReducer,
+    updateNode as updateNodeReducer,
+    type NodePatch,
 } from './graph-mutations';
 
 export interface Point {
@@ -22,6 +24,7 @@ export interface WorkflowGraphController {
     positions: PositionedNode[];
     addNode: (type: string) => void;
     deleteNode: (id: string) => void;
+    updateNode: (id: string, patch: NodePatch) => void;
     connect: (edge: WorkflowEdge) => void;
     deleteEdge: (edge: WorkflowEdge) => void;
     moveNode: (id: string, position: Point) => void;
@@ -83,6 +86,13 @@ export function useWorkflowGraph(
         setGraphState((g) => deleteNodeReducer(g, id));
     }, []);
 
+    // Property-modal save: patch one node's name/with/continueOnError. The structure
+    // (nodes/edges) is unchanged, so the layout re-run overlays existing positions and
+    // nothing visibly moves.
+    const updateNode = useCallback((id: string, patch: NodePatch) => {
+        setGraphState((g) => updateNodeReducer(g, id, patch));
+    }, []);
+
     const connect = useCallback((edge: WorkflowEdge) => {
         setGraphState((g) => (wouldCreateCycle(g, edge) ? g : connectNodes(g, edge)));
     }, []);
@@ -116,6 +126,7 @@ export function useWorkflowGraph(
         positions,
         addNode,
         deleteNode,
+        updateNode,
         connect,
         deleteEdge,
         moveNode,

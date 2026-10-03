@@ -112,6 +112,17 @@ describe('useWorkflowGraph', () => {
         expect(result.current.graph.edges).toEqual([]);
     });
 
+    it('updates a node payload through the controller', async () => {
+        const initial: WorkflowGraph = { nodes: [node('a')], edges: [] };
+        const { result } = renderHook(() => useWorkflowGraph(initial));
+        await waitFor(() => expect(result.current.positions).toHaveLength(1));
+
+        act(() => result.current.updateNode('a', { name: 'Pause', with: { duration: '9s' } }));
+
+        expect(result.current.graph.nodes[0].name).toBe('Pause');
+        expect(result.current.graph.nodes[0].with).toEqual({ duration: '9s' });
+    });
+
     it('moves a node to a new position without re-running layout', async () => {
         const initial: WorkflowGraph = { nodes: [node('a')], edges: [] };
         const { result } = renderHook(() => useWorkflowGraph(initial));

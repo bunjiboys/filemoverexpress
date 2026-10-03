@@ -60,6 +60,32 @@ export function deleteEdge(graph: WorkflowGraph, edge: WorkflowEdge): WorkflowGr
     return withNodesEdges(graph, graph.nodes, edges);
 }
 
+// What a property-modal save can change on a node: its display name, its `with`
+// payload, and the continue-on-error flag. The id and type are fixed once created.
+export interface NodePatch {
+    name?: string;
+    with?: Record<string, unknown>;
+    continueOnError?: boolean;
+}
+
+// Apply a property-modal save to one node. Fields absent from the patch keep their
+// current value, so a partial save is fine. A no-op for an unknown id. Returns a new
+// graph; the input is not mutated.
+export function updateNode(graph: WorkflowGraph, id: string, patch: NodePatch): WorkflowGraph {
+    const nodes = graph.nodes.map((n) => {
+        if (n.id !== id) {
+            return n;
+        }
+        return {
+            ...n,
+            name: patch.name ?? n.name,
+            with: patch.with ?? n.with,
+            continueOnError: patch.continueOnError ?? n.continueOnError,
+        };
+    });
+    return withNodesEdges(graph, nodes, graph.edges);
+}
+
 // Rebuild a graph with new nodes/edges while carrying document-level fields through
 // unchanged. Centralizes the pass-through so each reducer stays a one-liner and no
 // reducer forgets to preserve metadata/parameters/defaults.
