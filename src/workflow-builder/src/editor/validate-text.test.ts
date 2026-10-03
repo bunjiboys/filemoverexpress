@@ -33,6 +33,43 @@ describe('validateText', () => {
         expect(anns.every((a) => !a.text.includes('  '))).toBe(true);
     });
 
+    it('positions a nested schema error on its source line, not line 1', () => {
+        // An invalid `with` for a Sleep step (duration must be a string) sits deep in
+        // the document; the annotation should land on that line, not default to row 0.
+        const bad = [
+            `apiVersion: ${API_VERSION}`,
+            `kind: ${KIND}`,
+            'spec:',
+            '  steps:',
+            '    - id: a',
+            '      type: Sleep',
+            '      with:',
+            '        duration: 5',
+            '',
+        ].join('\n');
+        const anns = validateText(bad, 'yaml');
+        expect(anns.length).toBeGreaterThan(0);
+        expect(anns.some((a) => a.row > 0)).toBe(true);
+    });
+
+    it('falls back to a positionless annotation when the position cannot be mapped', () => {
+        // JSON.parse accepts duplicate keys (last wins) so textToDocument succeeds and
+        // the schema stage runs, but the yaml parser used for position mapping rejects
+        // the duplicate key, so instancePathToPosition returns undefined and the schema
+        // annotation defaults to the document start.
+        const bad = [
+            '{',
+            `  "apiVersion": "${API_VERSION}",`,
+            `  "apiVersion": "${API_VERSION}",`,
+            `  "kind": "${KIND}",`,
+            '  "spec": { "steps": [] }',
+            '}',
+        ].join('\n');
+        const anns = validateText(bad, 'json');
+        expect(anns.length).toBeGreaterThan(0);
+        expect(anns.every((a) => a.row === 0)).toBe(true);
+    });
+
     it('returns graph-error annotations for duplicate step ids', () => {
         const dup = JSON.stringify({
             apiVersion: API_VERSION,
