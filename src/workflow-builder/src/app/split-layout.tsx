@@ -4,18 +4,22 @@ import { clampRatio, ratioFromPointer } from './split-ratio';
 export interface SplitLayoutProps {
     left: React.ReactNode;
     right: React.ReactNode;
+    // The left-pane fraction (0..1), owned by the parent so it survives this
+    // component unmounting on a view switch (session state, not persisted).
+    ratio: number;
+    onRatioChange: (ratio: number) => void;
 }
 
 // Keyboard resize step per arrow press.
 const KEY_STEP = 0.05;
 
 // A horizontally resizable two-pane layout for Split view (docs section 10): the left
-// pane's width is a ratio of the container, adjusted by dragging the divider or by
-// arrow keys on it (accessible). The ratio math lives in split-ratio (pure, tested);
-// this component only wires pointer/keyboard events and renders. The divider is a
-// focusable separator with aria-orientation so it is operable without a mouse.
-export function SplitLayout({ left, right }: SplitLayoutProps): React.JSX.Element {
-    const [ratio, setRatio] = useState(0.5);
+// pane's width is a controlled ratio of the container, adjusted by dragging the
+// divider or by arrow keys on it (accessible). The ratio is lifted to the parent so a
+// view switch (which unmounts this) does not reset it. The ratio math lives in
+// split-ratio (pure, tested); this component only wires pointer/keyboard events and
+// renders. The divider is a focusable slider so it is operable without a mouse.
+export function SplitLayout({ left, right, ratio, onRatioChange }: SplitLayoutProps): React.JSX.Element {
     const [dragging, setDragging] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
 
@@ -28,10 +32,10 @@ export function SplitLayout({ left, right }: SplitLayoutProps): React.JSX.Elemen
         const onMove = (e: PointerEvent): void => {
             // During an active drag the container is always mounted; measure it and let
             // ratioFromPointer handle a degenerate (zero-width) rect, so no branch is
-            // needed here. The non-null assertion is safe: the separator cannot receive
-            // a pointerdown unless its sibling container is in the DOM.
+            // needed here. The non-null assertion is safe: the slider cannot receive a
+            // pointerdown unless its sibling container is in the DOM.
             const rect = containerRef.current!.getBoundingClientRect();
-            setRatio(ratioFromPointer(rect.left, rect.width, e.clientX));
+            onRatioChange(ratioFromPointer(rect.left, rect.width, e.clientX));
         };
         const onUp = (): void => setDragging(false);
         window.addEventListener('pointermove', onMove);
@@ -40,15 +44,15 @@ export function SplitLayout({ left, right }: SplitLayoutProps): React.JSX.Elemen
             window.removeEventListener('pointermove', onMove);
             window.removeEventListener('pointerup', onUp);
         };
-    }, [dragging]);
+    }, [dragging, onRatioChange]);
 
     const onKeyDown = useCallback((e: React.KeyboardEvent): void => {
         if (e.key === 'ArrowLeft') {
-            setRatio((r) => clampRatio(r - KEY_STEP));
+            onRatioChange(clampRatio(ratio - KEY_STEP));
         } else if (e.key === 'ArrowRight') {
-            setRatio((r) => clampRatio(r + KEY_STEP));
+            onRatioChange(clampRatio(ratio + KEY_STEP));
         }
-    }, []);
+    }, [ratio, onRatioChange]);
 
     const leftPercent = `${ratio * 100}%`;
     const rightPercent = `${(1 - ratio) * 100}%`;

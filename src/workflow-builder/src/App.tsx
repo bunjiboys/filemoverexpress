@@ -51,6 +51,9 @@ export function App(): React.JSX.Element {
     const controller = useWorkflowGraph(INITIAL_GRAPH);
     const [text, setText] = useState(INITIAL_TEXT);
     const [format, setFormat] = useState<EditorFormat>('yaml');
+    // Split-view divider ratio (left-pane fraction). Lifted here so it survives a view
+    // switch within the session; default is a 60/40 canvas/editor split. Not persisted.
+    const [splitRatio, setSplitRatio] = useState(0.6);
     // Which view produced the pending model/text change, so each sync direction only
     // reacts to the OTHER view's edits and the loop terminates.
     const lastEdit = useRef<'canvas' | 'editor'>('canvas');
@@ -140,6 +143,8 @@ export function App(): React.JSX.Element {
                     <div style={{ display: 'flex', gap: 16, height: '78vh' }}>
                         {view.mode === 'split' ? (
                             <SplitLayout
+                                ratio={splitRatio}
+                                onRatioChange={setSplitRatio}
                                 left={<div data-testid="canvas-pane" style={{ height: '100%' }}>{canvasPane}</div>}
                                 right={<div data-testid="editor-pane" style={{ height: '100%' }}>{editorPane}</div>}
                             />

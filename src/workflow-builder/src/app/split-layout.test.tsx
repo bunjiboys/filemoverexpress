@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { SplitLayout } from './split-layout';
 
@@ -8,66 +8,62 @@ const panes = () => ({
 });
 
 // SplitLayout shows two panes with a draggable divider between them (docs section 10).
-// The ratio math is unit-tested in split-ratio.test; this covers the component wiring:
-// both panes render, the divider is present and accessible, and a drag updates the
-// pane sizing without throwing. Real pixel widths are a Tier-2 concern (jsdom returns
-// a zero-size bounding rect), so this asserts the drag path runs and the flex basis
-// stays a percentage.
+// The ratio is controlled by the parent (so it survives a view switch), and the ratio
+// math is unit-tested in split-ratio.test; this covers the component wiring: both
+// panes render, the slider is present and accessible, and drag/keyboard emit new
+// ratios. Real pixel widths are a Tier-2 concern (jsdom returns a zero-size bounding
+// rect), so this asserts the handlers emit a clamped ratio.
 describe('SplitLayout', () => {
     it('renders both panes and a resizer handle', () => {
-        render(<SplitLayout {...panes()} />);
+        render(<SplitLayout {...panes()} ratio={0.6} onRatioChange={vi.fn()} />);
         expect(screen.getByTestId('left-child')).toBeInTheDocument();
         expect(screen.getByTestId('right-child')).toBeInTheDocument();
         expect(screen.getByRole('slider')).toBeInTheDocument();
     });
 
-    it('starts at an even split', () => {
-        render(<SplitLayout {...panes()} />);
-        const left = screen.getByTestId('split-left');
-        expect(left.style.flexBasis).toBe('50%');
+    it('sizes the left pane from the controlled ratio', () => {
+        render(<SplitLayout {...panes()} ratio={0.6} onRatioChange={vi.fn()} />);
+        expect(screen.getByTestId('split-left').style.flexBasis).toBe('60%');
     });
 
-    it('updates the split while the divider is dragged', () => {
-        render(<SplitLayout {...panes()} />);
+    it('emits a new ratio while the divider is dragged', () => {
+        const onRatioChange = vi.fn();
+        render(<SplitLayout {...panes()} ratio={0.6} onRatioChange={onRatioChange} />);
         const resizer = screen.getByRole('slider');
         fireEvent.pointerDown(resizer, { clientX: 0 });
         fireEvent.pointerMove(window, { clientX: 200 });
         fireEvent.pointerUp(window);
-        // jsdom reports a zero-width container, so the ratio clamps to the minimum;
-        // the point is the drag path runs and resizes without error.
-        const left = screen.getByTestId('split-left');
-        expect(left.style.flexBasis).toMatch(/%$/);
+        // jsdom reports a zero-width container, so the emitted ratio clamps to the
+        // minimum; the point is the drag path runs and emits a clamped value.
+        expect(onRatioChange).toHaveBeenCalled();
+        expect(onRatioChange.mock.calls[0][0]).toBeGreaterThanOrEqual(0.15);
     });
 
-    it('ignores pointer moves when not dragging', () => {
-        render(<SplitLayout {...panes()} />);
+    it('does not emit when a pointer moves without a drag in progress', () => {
+        const onRatioChange = vi.fn();
+        render(<SplitLayout {...panes()} ratio={0.6} onRatioChange={onRatioChange} />);
         fireEvent.pointerMove(window, { clientX: 300 });
-        const left = screen.getByTestId('split-left');
-        expect(left.style.flexBasis).toBe('50%');
+        expect(onRatioChange).not.toHaveBeenCalled();
     });
 
-    it('supports keyboard resize via arrow keys on the separator', () => {
-        render(<SplitLayout {...panes()} />);
-        const resizer = screen.getByRole('slider');
-        const before = screen.getByTestId('split-left').style.flexBasis;
-        fireEvent.keyDown(resizer, { key: 'ArrowLeft' });
-        expect(screen.getByTestId('split-left').style.flexBasis).not.toBe(before);
+    it('emits a smaller ratio on ArrowLeft', () => {
+        const onRatioChange = vi.fn();
+        render(<SplitLayout {...panes()} ratio={0.6} onRatioChange={onRatioChange} />);
+        fireEvent.keyDown(screen.getByRole('slider'), { key: 'ArrowLeft' });
+        expect(onRatioChange.mock.calls[0][0]).toBeCloseTo(0.55);
     });
 
-    it('ignores non-arrow keys on the separator', () => {
-        render(<SplitLayout {...panes()} />);
-        const resizer = screen.getByRole('slider');
-        const before = screen.getByTestId('split-left').style.flexBasis;
-        fireEvent.keyDown(resizer, { key: 'Enter' });
-        expect(screen.getByTestId('split-left').style.flexBasis).toBe(before);
+    it('emits a larger ratio on ArrowRight', () => {
+        const onRatioChange = vi.fn();
+        render(<SplitLayout {...panes()} ratio={0.6} onRatioChange={onRatioChange} />);
+        fireEvent.keyDown(screen.getByRole('slider'), { key: 'ArrowRight' });
+        expect(onRatioChange.mock.calls[0][0]).toBeCloseTo(0.65);
     });
 
-    it('moves the split right on ArrowRight', () => {
-        render(<SplitLayout {...panes()} />);
-        const resizer = screen.getByRole('slider');
-        fireEvent.keyDown(resizer, { key: 'ArrowRight' });
-        // 0.50 + step, still a percentage.
-        expect(screen.getByTestId('split-left').style.flexBasis).toMatch(/%$/);
+    it('ignores non-arrow keys on the slider', () => {
+        const onRatioChange = vi.fn();
+        render(<SplitLayout {...panes()} ratio={0.6} onRatioChange={onRatioChange} />);
+        fireEvent.keyDown(screen.getByRole('slider'), { key: 'Enter' });
+        expect(onRatioChange).not.toHaveBeenCalled();
     });
 });
-
