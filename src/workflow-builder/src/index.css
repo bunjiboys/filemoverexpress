@@ -1,0 +1,11 @@
+/* Minimal reset so the app fills the viewport. Cloudscape's global styles
+   (imported in main.tsx) own the themed background and typography; this only removes
+   the browser's default body margin and lets the app occupy the full height, which
+   stops the stray scrollbar and the light frame at the viewport edge in dark mode. */
+html,
+body,
+#root {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+}
