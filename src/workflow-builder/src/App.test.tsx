@@ -236,17 +236,12 @@ describe('App', () => {
         });
     });
 
-    it('closes the document panel via the AppLayout tools control', async () => {
+    it('closes the document drawer from its close button', async () => {
         const { container } = render(<App />);
-        // Open via the header button, then close via Cloudscape's own tools toggle,
-        // which drives onToolsChange.
         createWrapper(container).findButton('[data-testid="document"]')!.click();
-        await waitFor(() => expect(createWrapper(container).findInput('[data-testid="meta-name"]')).not.toBeNull());
-        const appLayout = createWrapper(container).findAppLayout()!;
-        // Exercises the onToolsChange handler; the control is present once the drawer
-        // is open.
-        expect(appLayout.findToolsClose()).not.toBeNull();
-        appLayout.findToolsClose().click();
+        await waitFor(() => expect(screen.getByTestId('document-drawer')).toBeInTheDocument());
+        fireEvent.click(screen.getByTestId('document-drawer-close'));
+        await waitFor(() => expect(screen.queryByTestId('document-drawer')).not.toBeInTheDocument());
     });
 
     it('dismisses the import-error flash', async () => {

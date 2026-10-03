@@ -5,7 +5,6 @@ import Header from '@cloudscape-design/components/header';
 import SpaceBetween from '@cloudscape-design/components/space-between';
 import Button from '@cloudscape-design/components/button';
 import Flashbar, { type FlashbarProps } from '@cloudscape-design/components/flashbar';
-import HelpPanel from '@cloudscape-design/components/help-panel';
 import { useViewMode } from './app/use-view-mode';
 import { ViewModeControl } from './app/view-mode-control';
 import { useColorMode } from './app/use-color-mode';
@@ -16,7 +15,7 @@ import { convertText } from './editor/convert-text';
 import { type EditorFormat } from './editor/editor-text';
 import { CanvasPane } from './canvas/canvas-pane';
 import { SplitLayout } from './app/split-layout';
-import { DocumentPanel } from './app/document-panel';
+import { DocumentDrawer } from './app/document-drawer';
 import { useWorkflowGraph } from './canvas/use-workflow-graph';
 import { graphToText, textToGraph } from './app/model-text-sync';
 import { browserFileAccess, type OpenedFile } from './io/file-access';
@@ -243,58 +242,61 @@ export function App(): React.JSX.Element {
     );
 
     return (
-        <AppLayout
-            navigationHide
-            toolsOpen={docOpen}
-            onToolsChange={(e) => setDocOpen(e.detail.open)}
-            tools={
-                <HelpPanel header={<h2>Document</h2>}>
-                    <DocumentPanel graph={controller.graph} onChange={onDocumentChange} />
-                </HelpPanel>
-            }
-            content={
-                <ContentLayout
-                    header={
-                        <Header
-                            variant="h1"
-                            actions={
-                                <SpaceBetween direction="horizontal" size="xs">
-                                    <Button data-testid="import" iconName="upload" onClick={onImport}>Open</Button>
-                                    <Button data-testid="export" iconName="download" onClick={onExport}>Export</Button>
-                                    <Button data-testid="document" iconName="settings" onClick={() => setDocOpen((o) => !o)}>Document</Button>
-                                    <ViewModeControl mode={view.mode} onChange={view.setMode} />
-                                    <ColorModeToggle mode={color.mode} onToggle={color.toggle} />
-                                </SpaceBetween>
-                            }
-                        >
-                            FME Workflow Builder
-                        </Header>
-                    }
-                >
-                    <SpaceBetween size="s">
-                        {flash.length > 0 && <Flashbar items={flash} />}
-                        <div style={{ display: 'flex', gap: 16, height: '78vh' }}>
-                            {view.mode === 'split' ? (
-                                <SplitLayout
-                                    ratio={splitRatio}
-                                    onRatioChange={setSplitRatio}
-                                    left={<div data-testid="canvas-pane" style={{ height: '100%' }}>{canvasPane}</div>}
-                                    right={<div data-testid="editor-pane" style={{ height: '100%' }}>{editorPane}</div>}
-                                />
-                            ) : (
-                                <>
-                                    {view.showCanvas && (
-                                        <div data-testid="canvas-pane" style={{ flex: 1 }}>{canvasPane}</div>
-                                    )}
-                                    {view.showEditor && (
-                                        <div data-testid="editor-pane" style={{ flex: 1 }}>{editorPane}</div>
-                                    )}
-                                </>
-                            )}
-                        </div>
-                    </SpaceBetween>
-                </ContentLayout>
-            }
-        />
+        <>
+            <AppLayout
+                navigationHide
+                toolsHide
+                content={
+                    <ContentLayout
+                        header={
+                            <Header
+                                variant="h1"
+                                actions={
+                                    <SpaceBetween direction="horizontal" size="xs">
+                                        <Button data-testid="import" iconName="upload" onClick={onImport}>Open</Button>
+                                        <Button data-testid="export" iconName="download" onClick={onExport}>Export</Button>
+                                        <Button data-testid="document" variant="primary" iconName="settings" onClick={() => setDocOpen((o) => !o)}>Document</Button>
+                                        <ViewModeControl mode={view.mode} onChange={view.setMode} />
+                                        <ColorModeToggle mode={color.mode} onToggle={color.toggle} />
+                                    </SpaceBetween>
+                                }
+                            >
+                                FME Workflow Builder
+                            </Header>
+                        }
+                    >
+                        <SpaceBetween size="s">
+                            {flash.length > 0 && <Flashbar items={flash} />}
+                            <div style={{ display: 'flex', gap: 16, height: '78vh' }}>
+                                {view.mode === 'split' ? (
+                                    <SplitLayout
+                                        ratio={splitRatio}
+                                        onRatioChange={setSplitRatio}
+                                        left={<div data-testid="canvas-pane" style={{ height: '100%' }}>{canvasPane}</div>}
+                                        right={<div data-testid="editor-pane" style={{ height: '100%' }}>{editorPane}</div>}
+                                    />
+                                ) : (
+                                    <>
+                                        {view.showCanvas && (
+                                            <div data-testid="canvas-pane" style={{ flex: 1 }}>{canvasPane}</div>
+                                        )}
+                                        {view.showEditor && (
+                                            <div data-testid="editor-pane" style={{ flex: 1 }}>{editorPane}</div>
+                                        )}
+                                    </>
+                                )}
+                            </div>
+                        </SpaceBetween>
+                    </ContentLayout>
+                }
+            />
+            <DocumentDrawer
+                open={docOpen}
+                graph={controller.graph}
+                colorMode={color.mode}
+                onChange={onDocumentChange}
+                onClose={() => setDocOpen(false)}
+            />
+        </>
     );
 }
