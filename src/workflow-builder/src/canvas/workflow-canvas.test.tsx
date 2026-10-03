@@ -70,6 +70,7 @@ function controllerStub(overrides: Partial<WorkflowGraphController> = {}): Workf
         deleteNode: vi.fn(),
         updateNode: vi.fn(),
         clearConnections: vi.fn(),
+        setDocument: vi.fn(),
         connect: vi.fn(),
         deleteEdge: vi.fn(),
         moveNode: vi.fn(),
@@ -157,6 +158,7 @@ describe('WorkflowCanvas', () => {
         expect(onContextMenu).toHaveBeenCalledWith({ kind: 'edge', id: 'a->b', x: 5, y: 6 });
     });
 });
+
 
 
 

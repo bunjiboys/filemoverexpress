@@ -6,6 +6,7 @@ import {
     deleteEdge,
     updateNode,
     clearNodeEdges,
+    updateDocument,
     nextNodeId,
 } from './graph-mutations';
 import type { WorkflowGraph } from '../workflow/graph';
@@ -222,5 +223,51 @@ describe('clearNodeEdges', () => {
         };
         const result = clearNodeEdges(graph, 'standalone');
         expect(result.edges).toEqual([{ source: 'a', target: 'b' }]);
+    });
+});
+
+describe('updateDocument', () => {
+    const base: WorkflowGraph = {
+        nodes: [node('a')],
+        edges: [],
+        metadata: { name: 'old' },
+    };
+
+    it('replaces metadata', () => {
+        const result = updateDocument(base, { metadata: { name: 'new', description: 'd' } });
+        expect(result.metadata).toEqual({ name: 'new', description: 'd' });
+    });
+
+    it('sets parameters', () => {
+        const params = [{ name: 'p', type: 'string' }];
+        const result = updateDocument(base, { parameters: params });
+        expect(result.parameters).toEqual(params);
+    });
+
+    it('sets defaults', () => {
+        const result = updateDocument(base, { defaults: { force: true } });
+        expect(result.defaults).toEqual({ force: true });
+    });
+
+    it('leaves nodes and edges untouched', () => {
+        const result = updateDocument(base, { metadata: { name: 'x' } });
+        expect(result.nodes).toEqual(base.nodes);
+        expect(result.edges).toEqual([]);
+    });
+
+    it('leaves unspecified document fields as they were', () => {
+        const graph: WorkflowGraph = { ...base, parameters: [{ name: 'keep', type: 'int' }] };
+        const result = updateDocument(graph, { metadata: { name: 'x' } });
+        expect(result.parameters).toEqual([{ name: 'keep', type: 'int' }]);
+    });
+
+    it('clears a field when given undefined explicitly', () => {
+        const result = updateDocument(base, { metadata: undefined });
+        expect(result.metadata).toBeUndefined();
+    });
+
+    it('does not mutate the input graph', () => {
+        updateDocument(base, { metadata: { name: 'mutated' } });
+        expect(base.metadata).toEqual({ name: 'old' });
     });
 });

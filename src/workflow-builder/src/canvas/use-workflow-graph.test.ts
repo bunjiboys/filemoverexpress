@@ -137,6 +137,17 @@ describe('useWorkflowGraph', () => {
         expect(result.current.graph.nodes.map((n) => n.id)).toEqual(['a', 'b']);
     });
 
+    it('updates document fields through the controller', async () => {
+        const initial: WorkflowGraph = { nodes: [node('a')], edges: [] };
+        const { result } = renderHook(() => useWorkflowGraph(initial));
+        await waitFor(() => expect(result.current.positions).toHaveLength(1));
+
+        act(() => result.current.setDocument({ metadata: { name: 'Flow' }, defaults: { force: true } }));
+
+        expect(result.current.graph.metadata).toEqual({ name: 'Flow' });
+        expect(result.current.graph.defaults).toEqual({ force: true });
+    });
+
     it('moves a node to a new position without re-running layout', async () => {
         const initial: WorkflowGraph = { nodes: [node('a')], edges: [] };
         const { result } = renderHook(() => useWorkflowGraph(initial));

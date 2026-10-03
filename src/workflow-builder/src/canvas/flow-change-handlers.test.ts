@@ -13,6 +13,7 @@ function controllerSpy(): WorkflowGraphController {
         deleteNode: vi.fn(),
         updateNode: vi.fn(),
         clearConnections: vi.fn(),
+        setDocument: vi.fn(),
         connect: vi.fn(),
         deleteEdge: vi.fn(),
         moveNode: vi.fn(),
@@ -91,4 +92,5 @@ describe('applyEdgeChangesToModel', () => {
         expect(c.deleteEdge).not.toHaveBeenCalled();
     });
 });
+
 

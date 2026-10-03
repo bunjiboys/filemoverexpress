@@ -90,6 +90,7 @@ function controllerStub(overrides: Partial<WorkflowGraphController> = {}): Workf
         deleteNode: vi.fn(),
         updateNode: vi.fn(),
         clearConnections: vi.fn(),
+        setDocument: vi.fn(),
         connect: vi.fn(),
         deleteEdge: vi.fn(),
         moveNode: vi.fn(),
@@ -219,6 +220,7 @@ describe('CanvasPane', () => {
         expect(screen.queryByTestId('context-menu')).not.toBeInTheDocument();
     });
 });
+
 
 
 

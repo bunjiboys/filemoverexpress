@@ -93,6 +93,35 @@ export function clearNodeEdges(graph: WorkflowGraph, id: string): WorkflowGraph 
     return withNodesEdges(graph, graph.nodes, edges);
 }
 
+// A patch for the document-level fields (everything that is not per-node): metadata,
+// parameters, defaults. A key PRESENT in the patch sets that field (even to undefined,
+// which clears it); a key ABSENT leaves the field as it was.
+export interface DocumentPatch {
+    metadata?: WorkflowGraph['metadata'];
+    parameters?: WorkflowGraph['parameters'];
+    defaults?: WorkflowGraph['defaults'];
+}
+
+// Apply a document-level patch (docs section 15 document panel). Nodes and edges are
+// untouched; only the metadata/parameters/defaults the patch names are changed.
+// Returns a new graph; the input is not mutated.
+export function updateDocument(graph: WorkflowGraph, patch: DocumentPatch): WorkflowGraph {
+    const next: WorkflowGraph = { nodes: graph.nodes, edges: graph.edges };
+    const metadata = 'metadata' in patch ? patch.metadata : graph.metadata;
+    const parameters = 'parameters' in patch ? patch.parameters : graph.parameters;
+    const defaults = 'defaults' in patch ? patch.defaults : graph.defaults;
+    if (metadata !== undefined) {
+        next.metadata = metadata;
+    }
+    if (parameters !== undefined) {
+        next.parameters = parameters;
+    }
+    if (defaults !== undefined) {
+        next.defaults = defaults;
+    }
+    return next;
+}
+
 // Rebuild a graph with new nodes/edges while carrying document-level fields through
 // unchanged. Centralizes the pass-through so each reducer stays a one-liner and no
 // reducer forgets to preserve metadata/parameters/defaults.

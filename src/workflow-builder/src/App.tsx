@@ -5,6 +5,7 @@ import Header from '@cloudscape-design/components/header';
 import SpaceBetween from '@cloudscape-design/components/space-between';
 import Button from '@cloudscape-design/components/button';
 import Flashbar, { type FlashbarProps } from '@cloudscape-design/components/flashbar';
+import HelpPanel from '@cloudscape-design/components/help-panel';
 import { useViewMode } from './app/use-view-mode';
 import { ViewModeControl } from './app/view-mode-control';
 import { useColorMode } from './app/use-color-mode';
@@ -15,6 +16,7 @@ import { convertText } from './editor/convert-text';
 import { type EditorFormat } from './editor/editor-text';
 import { CanvasPane } from './canvas/canvas-pane';
 import { SplitLayout } from './app/split-layout';
+import { DocumentPanel } from './app/document-panel';
 import { useWorkflowGraph } from './canvas/use-workflow-graph';
 import { graphToText, textToGraph } from './app/model-text-sync';
 import { browserFileAccess, type OpenedFile } from './io/file-access';
@@ -127,9 +129,18 @@ export function App(): React.JSX.Element {
     // Split-view divider ratio (left-pane fraction). Lifted here so it survives a view
     // switch within the session; default is a 60/40 canvas/editor split. Not persisted.
     const [splitRatio, setSplitRatio] = useState(0.6);
+    // Whether the document panel (metadata/parameters/defaults) tools drawer is open.
+    const [docOpen, setDocOpen] = useState(false);
     // Which view produced the pending model/text change, so each sync direction only
     // reacts to the OTHER view's edits and the loop terminates.
     const lastEdit = useRef<'canvas' | 'editor'>('canvas');
+
+    // A document-panel edit is a model change that should flow back out to the editor
+    // text, so it is marked canvas-origin like the other canvas mutations.
+    const onDocumentChange = useCallback((patch: Parameters<typeof controller.setDocument>[0]) => {
+        lastEdit.current = 'canvas';
+        controller.setDocument(patch);
+    }, [controller]);
 
     // Canvas -> editor: when the model changes from a canvas edit, re-derive the
     // canonical editor text. Skipped for editor-origin changes so the user's in-flight
@@ -233,8 +244,14 @@ export function App(): React.JSX.Element {
 
     return (
         <AppLayout
-            toolsHide
             navigationHide
+            toolsOpen={docOpen}
+            onToolsChange={(e) => setDocOpen(e.detail.open)}
+            tools={
+                <HelpPanel header={<h2>Document</h2>}>
+                    <DocumentPanel graph={controller.graph} onChange={onDocumentChange} />
+                </HelpPanel>
+            }
             content={
                 <ContentLayout
                     header={
@@ -244,6 +261,7 @@ export function App(): React.JSX.Element {
                                 <SpaceBetween direction="horizontal" size="xs">
                                     <Button data-testid="import" iconName="upload" onClick={onImport}>Open</Button>
                                     <Button data-testid="export" iconName="download" onClick={onExport}>Export</Button>
+                                    <Button data-testid="document" iconName="settings" onClick={() => setDocOpen((o) => !o)}>Document</Button>
                                     <ViewModeControl mode={view.mode} onChange={view.setMode} />
                                     <ColorModeToggle mode={color.mode} onToggle={color.toggle} />
                                 </SpaceBetween>

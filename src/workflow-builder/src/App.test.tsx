@@ -221,6 +221,34 @@ describe('App', () => {
             'archive']);
     });
 
+    it('opens the document panel and edits a workflow-level field', async () => {
+        const { container } = render(<App />);
+        createWrapper(container).findButton('[data-testid="document"]')!.click();
+        const name = createWrapper(container).findInput('[data-testid="meta-name"]');
+        expect(name).not.toBeNull();
+        name!.setInputValue('Renamed workflow');
+        // Document edits are canvas-origin, so in split mode the edit re-serializes to
+        // the editor text.
+        createWrapper(container).findSegmentedControl()!.findSegmentById('split')!.click();
+        await waitFor(() => {
+            const editor = screen.getByLabelText('editor-yaml') as HTMLTextAreaElement;
+            expect(editor.value).toContain('Renamed workflow');
+        });
+    });
+
+    it('closes the document panel via the AppLayout tools control', async () => {
+        const { container } = render(<App />);
+        // Open via the header button, then close via Cloudscape's own tools toggle,
+        // which drives onToolsChange.
+        createWrapper(container).findButton('[data-testid="document"]')!.click();
+        await waitFor(() => expect(createWrapper(container).findInput('[data-testid="meta-name"]')).not.toBeNull());
+        const appLayout = createWrapper(container).findAppLayout()!;
+        // Exercises the onToolsChange handler; the control is present once the drawer
+        // is open.
+        expect(appLayout.findToolsClose()).not.toBeNull();
+        appLayout.findToolsClose().click();
+    });
+
     it('dismisses the import-error flash', async () => {
         importWorkflow.mockResolvedValueOnce({ status: 'invalid', name: 'bad.yaml' });
         const { container } = render(<App />);

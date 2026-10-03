@@ -9,7 +9,9 @@ import {
     deleteNode as deleteNodeReducer,
     updateNode as updateNodeReducer,
     clearNodeEdges as clearNodeEdgesReducer,
+    updateDocument as updateDocumentReducer,
     type NodePatch,
+    type DocumentPatch,
 } from './graph-mutations';
 
 export interface Point {
@@ -27,6 +29,7 @@ export interface WorkflowGraphController {
     deleteNode: (id: string) => void;
     updateNode: (id: string, patch: NodePatch) => void;
     clearConnections: (id: string) => void;
+    setDocument: (patch: DocumentPatch) => void;
     connect: (edge: WorkflowEdge) => void;
     deleteEdge: (edge: WorkflowEdge) => void;
     moveNode: (id: string, position: Point) => void;
@@ -101,6 +104,12 @@ export function useWorkflowGraph(
         setGraphState((g) => clearNodeEdgesReducer(g, id));
     }, []);
 
+    // Document panel save: patch metadata/parameters/defaults. Nodes/edges unchanged,
+    // so the layout re-run overlays existing positions and nothing visibly moves.
+    const setDocument = useCallback((patch: DocumentPatch) => {
+        setGraphState((g) => updateDocumentReducer(g, patch));
+    }, []);
+
     const connect = useCallback((edge: WorkflowEdge) => {
         setGraphState((g) => (wouldCreateCycle(g, edge) ? g : connectNodes(g, edge)));
     }, []);
@@ -136,6 +145,7 @@ export function useWorkflowGraph(
         deleteNode,
         updateNode,
         clearConnections,
+        setDocument,
         connect,
         deleteEdge,
         moveNode,
