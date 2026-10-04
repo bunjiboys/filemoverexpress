@@ -92,6 +92,7 @@ import { initialTestState } from '@state/test.state';
 import { StreamingClientError, StreamingClientErrorType, FmeConfig } from '@app/classes';
 import { ConnectionState } from '@state/models/connection-state-model';
 import { ShutdownResult } from '@gen/es/fme/v1/shared_pb';
+import { WorkflowFormat } from '@gen/es/fme/v1/workflow_pb';
 import { Bookmark } from '../bookmarks/bookmarks.classes';
 import { BehaviorSubject } from 'rxjs';
 
@@ -211,6 +212,14 @@ describe('FmeClientService', () => {
 
         it('generateSupportFile errors StreamingClientNull', async () => {
             await expect(firstValueFrom(service.generateSupportFile())).rejects.toBeInstanceOf(StreamingClientError);
+        });
+
+        it('runWorkflow errors StreamingClientNull', async () => {
+            await expect(firstValueFrom(service.runWorkflow('doc', WorkflowFormat.YAML, []))).rejects.toBeInstanceOf(StreamingClientError);
+        });
+
+        it('listWorkflowRuns errors StreamingClientNull', async () => {
+            await expect(firstValueFrom(service.listWorkflowRuns())).rejects.toBeInstanceOf(StreamingClientError);
         });
 
         it('createS3Prefix errors "Not connected" (state gate, not client gate)', async () => {
@@ -345,6 +354,70 @@ describe('FmeClientService', () => {
             expect(statusFn.mock.calls[0][0].transferProfile).toBe('p2');
             expect(await firstValueFrom(service.logoutOIDC('p3'))).toEqual({ok: true});
             expect(logoutFn.mock.calls[0][0].transferProfile).toBe('p3');
+        });
+    });
+
+    // -----------------------------------------------------------------------
+    // Workflow runner RPCs (client gate).
+    // -----------------------------------------------------------------------
+    describe('workflow runner RPCs', () => {
+        beforeEach(() => service.init());
+
+        it('runWorkflow forwards document, format, and params and returns the response', async () => {
+            const fn = unarySuccess('runWorkflow', {accepted: true, runId: 'run-1', errors: []});
+            const res = await firstValueFrom(service.runWorkflow('doc-text', WorkflowFormat.JSON, [
+                {name: 'bucket', value: 'my-bucket'}, {name: 'force', value: 'true'},
+            ]));
+            expect(res).toEqual({accepted: true, runId: 'run-1', errors: []});
+            const req = fn.mock.calls[0][0];
+            expect(req.document).toBe('doc-text');
+            expect(req.format).toBe(WorkflowFormat.JSON);
+            expect(req.params).toHaveLength(2);
+            expect(req.params[0].name).toBe('bucket');
+            expect(req.params[0].value).toBe('my-bucket');
+            expect(req.params[1].name).toBe('force');
+            expect(req.params[1].value).toBe('true');
+        });
+
+        it('runWorkflow propagates RPC errors', async () => {
+            unaryFailure('runWorkflow', new Error('run-fail'));
+            await expect(firstValueFrom(service.runWorkflow('d', WorkflowFormat.YAML, []))).rejects.toThrow('run-fail');
+        });
+
+        it('validateWorkflow forwards document, format, and params', async () => {
+            const fn = unarySuccess('validateWorkflow', {valid: true, errors: []});
+            const res = await firstValueFrom(service.validateWorkflow('doc', WorkflowFormat.YAML, [{name: 'p', value: '1'}]));
+            expect(res).toEqual({valid: true, errors: []});
+            const req = fn.mock.calls[0][0];
+            expect(req.document).toBe('doc');
+            expect(req.format).toBe(WorkflowFormat.YAML);
+            expect(req.params[0].name).toBe('p');
+        });
+
+        it('listWorkflowRuns returns the response', async () => {
+            unarySuccess('listWorkflowRuns', {runs: [{runId: 'r1', name: 'wf'}]});
+            const res = await firstValueFrom(service.listWorkflowRuns());
+            expect(res.runs).toHaveLength(1);
+        });
+
+        it('cancelWorkflowRun forwards the run id', async () => {
+            const fn = unarySuccess('cancelWorkflowRun', {runId: 'r1', success: true, error: ''});
+            const res = await firstValueFrom(service.cancelWorkflowRun('r1'));
+            expect(res.success).toBe(true);
+            expect(fn.mock.calls[0][0].runId).toBe('r1');
+        });
+
+        it('pauseWorkflowRun forwards the run id and pauseInFlightJobs flag', async () => {
+            const fn = unarySuccess('pauseWorkflowRun', {runId: 'r1', success: true, error: ''});
+            await firstValueFrom(service.pauseWorkflowRun('r1', true));
+            expect(fn.mock.calls[0][0].runId).toBe('r1');
+            expect(fn.mock.calls[0][0].pauseInFlightJobs).toBe(true);
+        });
+
+        it('resumeWorkflowRun forwards the run id', async () => {
+            const fn = unarySuccess('resumeWorkflowRun', {runId: 'r1', success: true, error: ''});
+            await firstValueFrom(service.resumeWorkflowRun('r1'));
+            expect(fn.mock.calls[0][0].runId).toBe('r1');
         });
     });
 

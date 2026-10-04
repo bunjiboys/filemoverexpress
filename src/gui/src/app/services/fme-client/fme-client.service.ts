@@ -112,6 +112,29 @@ import {
     JobUpdateEvent,
     TaskCompleteEvent,
 } from '@events/job';
+import {
+    WorkflowRunCompleteEvent,
+    WorkflowRunStartedEvent,
+    WorkflowRunStatusChangeEvent,
+    WorkflowStepStatusChangeEvent,
+} from '@events/workflow';
+import {
+    CancelWorkflowRunRequestSchema,
+    CancelWorkflowRunResponse,
+    ListWorkflowRunsRequestSchema,
+    ListWorkflowRunsResponse,
+    PauseWorkflowRunRequestSchema,
+    PauseWorkflowRunResponse,
+    ResumeWorkflowRunRequestSchema,
+    ResumeWorkflowRunResponse,
+    RunWorkflowRequestSchema,
+    RunWorkflowResponse,
+    ValidateWorkflowRequestSchema,
+    ValidateWorkflowResponse,
+    WorkflowFormat,
+    WorkflowParamValue,
+    WorkflowParamValueSchema,
+} from '@gen/es/fme/v1/workflow_pb';
 
 @Injectable({
     providedIn: 'root',
@@ -832,6 +855,207 @@ export class FmeClientService {
 
     // endregion
 
+    // region Workflow runner
+    private buildWorkflowParams(params: { name: string, value: string }[]): WorkflowParamValue[] {
+        return params.map((p) => {
+            const pv = create(WorkflowParamValueSchema);
+            pv.name = p.name;
+            pv.value = p.value;
+            return pv;
+        });
+    }
+
+    /**
+     * Submit an externally-authored workflow document for execution. The daemon resolves
+     * ${params.*}, validates (fail-fast), schedules, and runs; it returns a run handle on
+     * acceptance or validation errors on rejection. The GUI never resolves params locally.
+     *
+     * @param document Raw workflow file text (YAML or JSON), exactly as authored.
+     * @param format How to parse the document.
+     * @param params User-supplied parameter values (name/value string pairs).
+     */
+    runWorkflow(
+        document: string,
+        format: WorkflowFormat,
+        params: { name: string, value: string }[],
+    ): Observable<RunWorkflowResponse> {
+        const sub = new Subject<RunWorkflowResponse>();
+        const req = create(RunWorkflowRequestSchema);
+        req.document = document;
+        req.format = format;
+        req.params = this.buildWorkflowParams(params);
+
+        if (!this.connectClient) {
+            sub.error(new StreamingClientError(StreamingClientErrorType.StreamingClientNull));
+            return sub.asObservable();
+        }
+
+        this.connectClient.runWorkflow(
+            req,
+            (err: ConnectError | undefined, res: RunWorkflowResponse) => {
+                if (err) {
+                    sub.error(err);
+                    return;
+                }
+
+                sub.next(res);
+                sub.complete();
+            },
+        );
+
+        return sub.asObservable();
+    }
+
+    /**
+     * Validate a workflow document (resolved with the given params) without executing it.
+     * Runs the same checks the daemon applies before a run, so the GUI can offer a
+     * "Validate" action distinct from "Run".
+     */
+    validateWorkflow(
+        document: string,
+        format: WorkflowFormat,
+        params: { name: string, value: string }[],
+    ): Observable<ValidateWorkflowResponse> {
+        const sub = new Subject<ValidateWorkflowResponse>();
+        const req = create(ValidateWorkflowRequestSchema);
+        req.document = document;
+        req.format = format;
+        req.params = this.buildWorkflowParams(params);
+
+        if (!this.connectClient) {
+            sub.error(new StreamingClientError(StreamingClientErrorType.StreamingClientNull));
+            return sub.asObservable();
+        }
+
+        this.connectClient.validateWorkflow(
+            req,
+            (err: ConnectError | undefined, res: ValidateWorkflowResponse) => {
+                if (err) {
+                    sub.error(err);
+                    return;
+                }
+
+                sub.next(res);
+                sub.complete();
+            },
+        );
+
+        return sub.asObservable();
+    }
+
+    /** List all workflow runs (live and finished, persisted across daemon restarts). */
+    listWorkflowRuns(): Observable<ListWorkflowRunsResponse> {
+        const sub = new Subject<ListWorkflowRunsResponse>();
+        const req = create(ListWorkflowRunsRequestSchema);
+
+        if (!this.connectClient) {
+            sub.error(new StreamingClientError(StreamingClientErrorType.StreamingClientNull));
+            return sub.asObservable();
+        }
+
+        this.connectClient.listWorkflowRuns(
+            req,
+            (err: ConnectError | undefined, res: ListWorkflowRunsResponse) => {
+                if (err) {
+                    sub.error(err);
+                    return;
+                }
+
+                sub.next(res);
+                sub.complete();
+            },
+        );
+
+        return sub.asObservable();
+    }
+
+    /** Cancel a run: stop scheduling, skip pending steps, cancel in-flight jobs. */
+    cancelWorkflowRun(runId: string): Observable<CancelWorkflowRunResponse> {
+        const sub = new Subject<CancelWorkflowRunResponse>();
+        const req = create(CancelWorkflowRunRequestSchema);
+        req.runId = runId;
+
+        if (!this.connectClient) {
+            sub.error(new StreamingClientError(StreamingClientErrorType.StreamingClientNull));
+            return sub.asObservable();
+        }
+
+        this.connectClient.cancelWorkflowRun(
+            req,
+            (err: ConnectError | undefined, res: CancelWorkflowRunResponse) => {
+                if (err) {
+                    sub.error(err);
+                    return;
+                }
+
+                sub.next(res);
+                sub.complete();
+            },
+        );
+
+        return sub.asObservable();
+    }
+
+    /**
+     * Pause a run. When pauseInFlightJobs is true, in-flight Job steps' jobs are also
+     * suspended; otherwise the scheduler is gated but running transfers finish.
+     */
+    pauseWorkflowRun(runId: string, pauseInFlightJobs: boolean): Observable<PauseWorkflowRunResponse> {
+        const sub = new Subject<PauseWorkflowRunResponse>();
+        const req = create(PauseWorkflowRunRequestSchema);
+        req.runId = runId;
+        req.pauseInFlightJobs = pauseInFlightJobs;
+
+        if (!this.connectClient) {
+            sub.error(new StreamingClientError(StreamingClientErrorType.StreamingClientNull));
+            return sub.asObservable();
+        }
+
+        this.connectClient.pauseWorkflowRun(
+            req,
+            (err: ConnectError | undefined, res: PauseWorkflowRunResponse) => {
+                if (err) {
+                    sub.error(err);
+                    return;
+                }
+
+                sub.next(res);
+                sub.complete();
+            },
+        );
+
+        return sub.asObservable();
+    }
+
+    /** Resume a paused run: un-gate the scheduler and resume any suspended jobs. */
+    resumeWorkflowRun(runId: string): Observable<ResumeWorkflowRunResponse> {
+        const sub = new Subject<ResumeWorkflowRunResponse>();
+        const req = create(ResumeWorkflowRunRequestSchema);
+        req.runId = runId;
+
+        if (!this.connectClient) {
+            sub.error(new StreamingClientError(StreamingClientErrorType.StreamingClientNull));
+            return sub.asObservable();
+        }
+
+        this.connectClient.resumeWorkflowRun(
+            req,
+            (err: ConnectError | undefined, res: ResumeWorkflowRunResponse) => {
+                if (err) {
+                    sub.error(err);
+                    return;
+                }
+
+                sub.next(res);
+                sub.complete();
+            },
+        );
+
+        return sub.asObservable();
+    }
+
+    // endregion
+
     // region Support file
     generateSupportFile(): Observable<CreateSupportFileResponse> {
         const sub = new Subject<CreateSupportFileResponse>();
@@ -1023,6 +1247,14 @@ export class FmeClientService {
                     return TaskCompleteEvent.fromProtobuf(response);
                 case EventType.JOB_CHECKSUM_PROGRESS_EVENT:
                     return JobChecksumProgressEvent.fromProtobuf(response);
+                case EventType.WORKFLOW_RUN_STARTED_EVENT_TYPE:
+                    return WorkflowRunStartedEvent.fromProtobuf(response);
+                case EventType.WORKFLOW_RUN_STATUS_CHANGE_EVENT_TYPE:
+                    return WorkflowRunStatusChangeEvent.fromProtobuf(response);
+                case EventType.WORKFLOW_STEP_STATUS_CHANGE_EVENT_TYPE:
+                    return WorkflowStepStatusChangeEvent.fromProtobuf(response);
+                case EventType.WORKFLOW_RUN_COMPLETE_EVENT_TYPE:
+                    return WorkflowRunCompleteEvent.fromProtobuf(response);
                 case EventType.TRANSFER_STATS_EVENT_TYPE:
                     return TransferStatsEvent.fromProtobuf(response);
                 default:
