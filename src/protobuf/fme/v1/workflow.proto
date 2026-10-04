@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package fme.v1;
 
+import "google/protobuf/timestamp.proto";
+
 option go_package = "github.com/awslabs/filemoverexpress/protobuf";
 
 // Workflow runner RPC surface (design: docs/designs/workflows/Workflow-Runner-GUI.md). The GUI opens an
@@ -118,4 +120,158 @@ message ValidateWorkflowResponse {
     bool valid = 1;
     // Every validation failure found; empty when valid.
     repeated WorkflowValidationError errors = 2;
+}
+
+// ============================================================================
+// Run lifecycle & state (design: docs/designs/workflows/Workflow-File-Format.md,
+// "Run lifecycle, state management, and persistence"). A submitted workflow becomes a
+// WorkflowRun the daemon owns from acceptance to a terminal state. Run state is a layer
+// ABOVE the per-job state the job manager tracks; a run owns the jobs its Job steps
+// create (linked by Job.workflow_run_id). Run state is persisted (bbolt, transition-only)
+// so runs survive a restart; see the format doc for reconciliation semantics.
+// ============================================================================
+
+// A step's status within a run. Step status is the finer-grained truth; run status is
+// derived from the set of step statuses.
+enum WorkflowStepStatus {
+    WORKFLOW_STEP_STATUS_UNSPECIFIED = 0;
+    // Declared, not yet eligible (a dependsOn is unmet).
+    WORKFLOW_STEP_STATUS_PENDING = 1;
+    // Eligible and executing (its executor is active).
+    WORKFLOW_STEP_STATUS_RUNNING = 2;
+    // Completed without error.
+    WORKFLOW_STEP_STATUS_SUCCEEDED = 3;
+    // The executor returned an error.
+    WORKFLOW_STEP_STATUS_FAILED = 4;
+    // A transitive dependency failed, or the run was cancelled before this step started.
+    WORKFLOW_STEP_STATUS_SKIPPED = 5;
+}
+
+// A run's overall status. PENDING/RUNNING/SUCCEEDED/FAILED are derived from step
+// statuses; PAUSED and CANCELLED are set directly by the user. SUCCEEDED/FAILED/CANCELLED
+// are terminal.
+enum WorkflowRunStatus {
+    WORKFLOW_RUN_STATUS_UNSPECIFIED = 0;
+    // Accepted and validated, not yet scheduling.
+    WORKFLOW_RUN_STATUS_PENDING = 1;
+    // At least one step is running or still reachable-and-pending.
+    WORKFLOW_RUN_STATUS_RUNNING = 2;
+    // The user paused the run; the scheduler is gated.
+    WORKFLOW_RUN_STATUS_PAUSED = 3;
+    // Every step reached SUCCEEDED (or SKIPPED under continueOnError). Terminal.
+    WORKFLOW_RUN_STATUS_SUCCEEDED = 4;
+    // At least one step FAILED without continueOnError. Terminal.
+    WORKFLOW_RUN_STATUS_FAILED = 5;
+    // The user cancelled the run before it reached a terminal state. Terminal.
+    WORKFLOW_RUN_STATUS_CANCELLED = 6;
+}
+
+// One step within a run, as surfaced to a client. The design-time step id is `step_id`
+// (distinct from any runtime job id); `job_id` links to the runtime Job a Job step
+// created, empty for non-Job steps or before the job exists.
+message WorkflowStep {
+    string step_id = 1;
+    string name = 2;
+    string type = 3;
+    WorkflowStepStatus status = 4;
+    // The runtime job this step created (Job steps only); empty otherwise.
+    string job_id = 5;
+    // Error message when status == FAILED; empty otherwise.
+    string error = 6;
+}
+
+// A run record as returned by ListWorkflowRuns. This mirrors the persisted run state
+// (one self-contained record per run id in the store), so the same shape serves both
+// the API and the bbolt/SQLite row.
+message WorkflowRun {
+    string run_id = 1;
+    // The workflow's metadata.name, for display.
+    string name = 2;
+    WorkflowRunStatus status = 3;
+    repeated WorkflowStep steps = 4;
+    google.protobuf.Timestamp created = 5;
+    google.protobuf.Timestamp started = 6;
+    google.protobuf.Timestamp completed = 7;
+}
+
+message ListWorkflowRunsRequest {}
+
+message ListWorkflowRunsResponse {
+    repeated WorkflowRun runs = 1;
+}
+
+// Cancel a whole run: stop scheduling, skip not-yet-started steps, and cancel in-flight
+// jobs. Idempotent once the run is terminal.
+message CancelWorkflowRunRequest {
+    string run_id = 1;
+}
+
+message CancelWorkflowRunResponse {
+    string run_id = 1;
+    bool success = 2;
+    // Set when the run id is unknown or already terminal; empty on success.
+    string error = 3;
+}
+
+// Pause a whole run: gate the scheduler so no new steps start. The user chooses whether
+// in-flight jobs are also paused.
+message PauseWorkflowRunRequest {
+    string run_id = 1;
+    // false (default): gate the scheduler only; steps already running finish normally.
+    // true: additionally pause each in-flight Job step's job (via the existing PauseJob
+    // path). Non-job in-flight steps (Sleep/Checksum/InventoryReport) have no pause
+    // primitive and run to completion either way.
+    bool pause_in_flight_jobs = 2;
+}
+
+message PauseWorkflowRunResponse {
+    string run_id = 1;
+    bool success = 2;
+    string error = 3;
+}
+
+// Resume a paused run: un-gate the scheduler and resume any jobs paused by a
+// pause_in_flight_jobs pause.
+message ResumeWorkflowRunRequest {
+    string run_id = 1;
+}
+
+message ResumeWorkflowRunResponse {
+    string run_id = 1;
+    bool success = 2;
+    string error = 3;
+}
+
+// ---- Run lifecycle events (carried over the existing ListEvents stream) ----
+// These are run-level STATE TRANSITIONS, not progress ticks. Byte progress continues to
+// ride JobProgressEvent tagged with workflow_run_id / workflow_step_id.
+
+// A run was accepted and scheduling began.
+message WorkflowRunStartedEvent {
+    string run_id = 1;
+    string name = 2;
+    google.protobuf.Timestamp started = 3;
+}
+
+// A run's overall status changed (e.g. RUNNING->PAUSED, ->CANCELLED, ->terminal).
+message WorkflowRunStatusChangeEvent {
+    string run_id = 1;
+    WorkflowRunStatus status = 2;
+    google.protobuf.Timestamp timestamp = 3;
+}
+
+// A step within a run changed status.
+message WorkflowStepStatusChangeEvent {
+    string run_id = 1;
+    string step_id = 2;
+    WorkflowStepStatus status = 3;
+    google.protobuf.Timestamp timestamp = 4;
+}
+
+// A run reached a terminal state (SUCCEEDED / FAILED / CANCELLED).
+message WorkflowRunCompleteEvent {
+    string run_id = 1;
+    string name = 2;
+    WorkflowRunStatus status = 3;
+    google.protobuf.Timestamp completed = 4;
 }

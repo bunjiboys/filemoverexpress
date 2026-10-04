@@ -33,7 +33,7 @@ The runner neither authors workflows nor executes them itself:
 
 - **Authoring** is the builder's job (or any third-party generator). The runner opens a
   finished file; it does not add, wire, or edit steps. It may show a read-only preview
-  of the graph (section 7), but editing a workflow is explicitly out of scope.
+  of the graph (section 8), but editing a workflow is explicitly out of scope.
 - **Execution** is the daemon's job. The format's core principle is that *the daemon
   owns the run end to end*: parsing, parameter resolution, validation, DAG scheduling,
   and step execution all happen daemon-side. The runner is a thin client that collects
@@ -140,16 +140,25 @@ message RunWorkflowResponse {
 }
 ```
 
-Companions, consistent with the format doc's `fme workflow validate|status|list`:
+Companions, consistent with the format doc's `fme workflow validate|status|list` and
+the run lifecycle (format doc "Run lifecycle, state management, and persistence"):
 
 ```
 rpc ValidateWorkflow(ValidateWorkflowRequest) returns (ValidateWorkflowResponse)
     // schema + reference + resolve-with-these-params check, no execution
+
+rpc ListWorkflowRuns(ListWorkflowRunsRequest) returns (ListWorkflowRunsResponse)
+rpc CancelWorkflowRun(CancelWorkflowRunRequest) returns (CancelWorkflowRunResponse)
+rpc PauseWorkflowRun(PauseWorkflowRunRequest) returns (PauseWorkflowRunResponse)
+    // PauseWorkflowRunRequest carries pause_in_flight_jobs (see section 7)
+rpc ResumeWorkflowRun(ResumeWorkflowRunRequest) returns (ResumeWorkflowRunResponse)
 ```
 
-`ListJobs` / `ListEvents` / `ListTasksForJob*` (which already exist) carry the run's
-progress once it starts, tagged with the workflow run id and step id as the format doc
-describes — so no new progress RPC is needed.
+These are drafted in `src/protobuf/fme/v1/workflow.proto` (with `WorkflowRun` /
+`WorkflowStep` records and the run/step lifecycle events). `ListJobs` / `ListEvents` /
+`ListTasksForJob*` (which already exist) carry the run's byte progress once it starts,
+tagged with the workflow run id and step id as the format doc describes — so no new
+progress RPC is needed.
 
 ### Parameter value encoding
 
@@ -181,7 +190,7 @@ client checks mirror the schema's parameter constraints:
 - These are the **same constraints** declared in `schemas/workflow/v1.json`, so the GUI
   SHOULD derive them from the parsed `spec.parameters` rather than hand-coding per
   workflow. (Whether the GUI bundles the schema like the builder does, or validates
-  structurally from the parsed parameters alone, is an open item — section 10.)
+  structurally from the parsed parameters alone, is an open item — section 11.)
 
 The run button is disabled while any field fails client validation, with the failing
 fields marked. Passing client validation does **not** guarantee the daemon accepts the
@@ -213,7 +222,59 @@ is surfaced after submit.
 A daemon-side rejection at step 4 returns the user to the prompt (parameter errors) or
 shows a document-level error (graph/profile errors), without starting a run.
 
-## 7. Read-only graph preview (optional, nice-to-have)
+## 7. Managing runs (list, cancel, pause, resume)
+
+Once runs exist, the GUI gives the user a **runs view** to see and control them. This is
+distinct from the parameter prompt (which is about *starting* a run) — it is about
+*managing in-flight and finished runs*. It is backed by the run-lifecycle RPCs and the
+run-level events (format doc "Run lifecycle, state management, and persistence").
+
+### Listing runs
+
+`ListWorkflowRuns` returns a `WorkflowRun` per run — run id, workflow name, overall
+status, a per-step status rollup, and timestamps. The GUI renders this as a table (one
+row per run) showing name, status, and progress (e.g. "3/5 steps succeeded"). Because run
+state is persisted, this list **includes finished runs across daemon restarts** (an
+interrupted run shows as FAILED per the reconciliation rules), not just live ones.
+
+Run rows join to the existing jobs view by `workflow_run_id`: expanding a run shows its
+steps, and a `Job` step links to its runtime job (and that job's tasks) through the
+existing `ListJobs` / `ListTasksForJob*` surface. The runs view does not duplicate
+job-level detail; it composes with it.
+
+### Live updates
+
+The runs view stays current from the run-level events on the existing `ListEvents`
+stream — `WorkflowRunStartedEvent`, `WorkflowRunStatusChangeEvent`,
+`WorkflowStepStatusChangeEvent`, `WorkflowRunCompleteEvent` — updating a run's status and
+step rollup as transitions arrive. Byte-level progress for a running step still comes from
+`JobProgressEvent` tagged with the run/step id, exactly as the single-job view already
+consumes it.
+
+### Controls per run
+
+Each non-terminal run row offers controls, each calling one lifecycle RPC and reflecting
+the result from the subsequent status-change event:
+
+- **Cancel** (`CancelWorkflowRun`) — stops scheduling, skips not-yet-started steps, and
+  cancels in-flight jobs. Shown for a RUNNING or PAUSED run. Because cancel is
+  irreversible and may abort large transfers, the GUI confirms before calling it.
+- **Pause** (`PauseWorkflowRun`) — shown for a RUNNING run. The GUI surfaces the
+  **`pause_in_flight_jobs` choice** to the user, since the format decision made it a user
+  option rather than a fixed behavior: a simple **Pause** gates the scheduler only
+  (in-flight transfers finish), while a **Pause (including running transfers)** affordance
+  also suspends in-flight jobs. The GUI should make the difference legible — e.g. a
+  primary "Pause" (scheduler only) plus a secondary "Pause transfers too", or a single
+  pause with a checkbox — and note that `Sleep`/`Checksum`/`InventoryReport` steps have no
+  pause primitive and run to completion regardless.
+- **Resume** (`ResumeWorkflowRun`) — shown for a PAUSED run. Un-gates the scheduler and
+  resumes any jobs that a `pause_in_flight_jobs` pause suspended.
+
+Controls are hidden or disabled once a run is terminal (SUCCEEDED/FAILED/CANCELLED); the
+lifecycle RPCs are idempotent and return an error for an unknown or already-terminal run,
+which the GUI surfaces inline on the row.
+
+## 8. Read-only graph preview (optional, nice-to-have)
 
 Because the file **is** a DAG and the format and builder already define the
 node→step/wire→`dependsOn` mapping, the runner MAY show a **read-only** rendering of the
@@ -221,7 +282,7 @@ graph beside the parameter prompt, so the user can see what they are about to ru
 is explicitly non-editable (editing is the builder's job) and is a nice-to-have, not a
 v1 requirement — a plain step list is sufficient for the first version.
 
-## 8. What this is NOT
+## 9. What this is NOT
 
 - **Not an editor.** The runner never changes the workflow file. Fix a workflow in the
   builder, not here.
@@ -234,7 +295,7 @@ v1 requirement — a plain step list is sufficient for the first version.
   credentials live in the named `transferProfile`, which the daemon resolves locally.
   The runner never prompts for or transmits credentials.
 
-## 9. Decisions (proposed)
+## 10. Decisions (proposed)
 
 - **Surface**: a runner lives in the **main FME GUI** (daemon-connected), distinct from
   the offline builder app. It opens an externally-authored workflow and runs it.
@@ -253,7 +314,7 @@ v1 requirement — a plain step list is sufficient for the first version.
 - **Scope**: open + prompt + confirm + submit + observe. No editing, no scheduling, no
   local resolution. A read-only graph preview is a nice-to-have, not v1.
 
-## 10. Open items for implementation
+## 11. Open items for implementation
 
 - **Schema in the GUI**: whether the GUI bundles `schemas/workflow/v1.json` (like the
   builder) to drive field generation and client validation, or derives fields

@@ -47,6 +47,10 @@ service FmeService {
     rpc LogoutOIDC (fme.v1.OIDCLogoutRequest) returns (fme.v1.OIDCLogoutResponse) {}
     rpc RunWorkflow (fme.v1.RunWorkflowRequest) returns (fme.v1.RunWorkflowResponse) {}
     rpc ValidateWorkflow (fme.v1.ValidateWorkflowRequest) returns (fme.v1.ValidateWorkflowResponse) {}
+    rpc ListWorkflowRuns (fme.v1.ListWorkflowRunsRequest) returns (fme.v1.ListWorkflowRunsResponse) {}
+    rpc CancelWorkflowRun (fme.v1.CancelWorkflowRunRequest) returns (fme.v1.CancelWorkflowRunResponse) {}
+    rpc PauseWorkflowRun (fme.v1.PauseWorkflowRunRequest) returns (fme.v1.PauseWorkflowRunResponse) {}
+    rpc ResumeWorkflowRun (fme.v1.ResumeWorkflowRunRequest) returns (fme.v1.ResumeWorkflowRunResponse) {}
 }
 
 // ListEventsRequest and Response must be in the main file, as it uses values from each sub-file and would otherwise
@@ -80,6 +84,11 @@ message ListEventsResponse {
         fme.v1.JobCreateEvent job_create_event = 19;
         fme.v1.JobChecksumProgressEvent job_checksum_progress_event = 20;
         fme.v1.TransferStatsEvent transfer_stats_event = 21;
+
+        fme.v1.WorkflowRunStartedEvent workflow_run_started_event = 22;
+        fme.v1.WorkflowRunStatusChangeEvent workflow_run_status_change_event = 23;
+        fme.v1.WorkflowStepStatusChangeEvent workflow_step_status_change_event = 24;
+        fme.v1.WorkflowRunCompleteEvent workflow_run_complete_event = 25;
     }
 }
 
