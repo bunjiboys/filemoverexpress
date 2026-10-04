@@ -307,30 +307,123 @@ v1 requirement — a plain step list is sufficient for the first version.
 - **Resolution ownership**: the daemon resolves `${params.*}` and validates; the GUI
   submits `{document, format, params}` and never resolves locally.
 - **Transport**: a new `RunWorkflow` (and `ValidateWorkflow`) RPC in `fme/v1`, with
-  `params` as a string→string map coerced daemon-side; progress rides the existing
-  `ListJobs`/`ListEvents` surface.
+  `params` as a string->string map coerced daemon-side; progress rides the existing
+  `ListJobs`/`ListEvents` surface. The run RPC is distinct from single-job submission.
 - **Client validation**: pre-flight only, mirroring the schema constraints for
-  immediate feedback; the daemon is authoritative.
-- **Scope**: open + prompt + confirm + submit + observe. No editing, no scheduling, no
-  local resolution. A read-only graph preview is a nice-to-have, not v1.
+  immediate feedback; the daemon is authoritative. The GUI **bundles
+  `schemas/workflow/v1.json`** to drive both field generation and these client checks.
+- **Validate affordance**: an explicit "Validate" action (`ValidateWorkflow`) in addition
+  to Run; Run itself validates fail-fast daemon-side, so it never bypasses validation.
+- **File open**: reuse the GUI's existing file-open surface where practical; a dedicated
+  workflow-open component only if adapting the existing one is too invasive.
+- **Scope**: open + prompt + confirm + submit + observe, plus a runs management view
+  (list/cancel/pause/resume). No editing, no scheduling, no local resolution. Manual
+  parameter entry only in v1 (no params-file load). A read-only graph preview is a
+  nice-to-have, not v1.
 
-## 11. Open items for implementation
+## 11. Open items for implementation (resolved)
 
-- **Schema in the GUI**: whether the GUI bundles `schemas/workflow/v1.json` (like the
-  builder) to drive field generation and client validation, or derives fields
-  structurally from the parsed `spec.parameters` without the full schema. Bundling keeps
-  one contract; deriving avoids shipping the schema into the Angular bundle.
-- **File open mechanics**: whether the runner reuses the GUI's existing file-browser /
-  Wails native file dialog, or a dedicated workflow-open affordance.
-- **`RunWorkflow` vs reusing job submit**: whether the workflow run is a distinct RPC or
-  layered on the existing job-submission path; the format doc keeps the workflow engine
-  above the current transfer engine, which argues for a distinct RPC.
+These were the open items from the design phase; each is now decided and the choice is
+recorded here. The implementation phases in section 12 build on these decisions.
+
+- **Schema in the GUI**: RESOLVED -- the GUI **bundles `schemas/workflow/v1.json`** and
+  validates against it. The schema drives both parameter field generation and client-side
+  pre-flight validation, so the GUI and the daemon share one contract (the daemon remains
+  authoritative; the client checks are UX only, per section 5).
+- **File open mechanics**: RESOLVED -- **reuse the existing GUI file surface where
+  practical**. The runner opens an external workflow file through the GUI's existing
+  file-open path rather than a bespoke affordance; a dedicated workflow-open component is
+  introduced only if adapting the existing one proves too invasive.
+- **`RunWorkflow` vs reusing job submit**: RESOLVED -- a **distinct `RunWorkflow` RPC**,
+  not layered on the job-submission path. This matches the format doc's layering (the
+  workflow engine sits above the transfer engine) and keeps run submission separate from
+  single-job submission.
+- **Validate-before-run affordance**: RESOLVED -- the GUI exposes an **explicit
+  "Validate" action** (calling `ValidateWorkflow` with the entered params), AND a Run
+  always validates: `RunWorkflow` is itself fail-fast daemon-side, so Run can never bypass
+  validation. The explicit button lets the user check without submitting; Run validates
+  implicitly before any step executes.
+- **Params-file equivalent**: RESOLVED -- **manual entry only in v1**. The GUI does not
+  load a saved parameter set / sidecar `.params.yaml` to pre-fill the prompt. (The CLI's
+  `--params-file` remains available; a GUI equivalent is deferred past v1.)
+
+### Still open / deferred
+
 - **Run history**: whether a workflow run appears in the GUI's job history the same way
   individual jobs do, consistent with how `ListJobs` behaves today (an open item the
-  format doc also flags for `fme workflow list`).
-- **Params-file equivalent**: the CLI accepts `--params-file`; whether the GUI offers
-  loading a saved parameter set (a sidecar `.params.yaml`) to pre-fill the prompt, or
-  only manual entry in v1.
-- **Validate-before-run affordance**: whether the GUI exposes a "Validate" action
-  (calling `ValidateWorkflow` with the entered params) separate from "Run", mirroring
-  `fme workflow validate`.
+  format doc also flags for `fme workflow list`). The runs view (section 7) is the
+  primary run-history surface; whether runs also surface in the single-job history is left
+  for the runs-view phase.
+
+## 12. Implementation plan (phases)
+
+Status at the start of GUI work: the **daemon side is already wired** -- the service
+handlers (`src/cli/service/run-workflow.go`, `validate-workflow.go`,
+`list-workflow-runs.go`, and the cancel/pause/resume handlers), the `WorkflowManager`
+(`src/cli/workflow/manager.go`), and the shared `Validate` pipeline
+(`src/cli/workflow/validate_doc.go`) exist with tests. The protobuf surface
+(`src/protobuf/fme/v1/workflow.proto`) is complete and its TypeScript bindings are
+generated at `src/gui/src/gen/es/fme/v1/workflow_pb.ts`. The **GUI side is greenfield**:
+no runner code exists yet.
+
+Each phase is test-first (Vitest, `.spec.ts`), self-contained, and follows the existing
+GUI conventions: RPCs flow through `FmeClientService`
+(`src/gui/src/app/services/fme-client/fme-client.service.ts`) as `Observable`-returning
+methods; events are decoded in that service's `convertEvent` switch and modeled as event
+classes under `src/gui/src/app/interfaces/events` (mirroring the job events); state is
+NgRx by domain under `src/gui/src/app/state`.
+
+### Phase 1 -- fme-client RPC + event wiring (foundation)
+
+Both user-facing surfaces depend on this, so it lands first.
+
+- Add to `FmeClientService`: `runWorkflow(document, format, params)`,
+  `validateWorkflow(document, format, params)`, `listWorkflowRuns()`,
+  `cancelWorkflowRun(runId)`, `pauseWorkflowRun(runId, pauseInFlightJobs)`,
+  `resumeWorkflowRun(runId)`. Each mirrors the existing request/guard/callback pattern and
+  returns an `Observable`.
+- Decode the four run-lifecycle events in `convertEvent`
+  (`WorkflowRunStartedEvent`, `WorkflowRunStatusChangeEvent`,
+  `WorkflowStepStatusChangeEvent`, `WorkflowRunCompleteEvent`) and add their event classes
+  under the events surface, matching the job-event classes.
+- Map the `WorkflowFormat` enum (yaml/json) and the `WorkflowParamValue` repeated form
+  for request construction, and surface `WorkflowValidationError` + its `kind` so callers
+  can route an error to a field (PARAMETER) versus a document-level banner.
+
+### Phase 2 -- parameter prompt flow (open -> prompt -> confirm -> submit -> observe)
+
+The core user-facing path (sections 3-6).
+
+- Bundle `schemas/workflow/v1.json` and drive field generation + client-side pre-flight
+  validation from the parsed `spec.parameters` against it (section 5; open item 1).
+- Open an external workflow file through the GUI's existing file-open surface where
+  practical; parse YAML/JSON, structurally validate, reject a malformed file before
+  prompting (open item 2).
+- Render one typed field per declared parameter with the file `default` pre-filled and
+  overridable (user value > file default > empty; a `bool`/`int`/`float` with no default
+  is treated as required). A workflow with no parameters skips straight to confirm.
+- A run confirmation summarizes name, parameter values as set, and step count.
+- Submit via `RunWorkflow` with `{document, format, params}`; route daemon
+  `WorkflowValidationError`s to the field (PARAMETER) or a document banner
+  (SCHEMA/GRAPH/PROFILE/VERSION). Expose an explicit **Validate** button
+  (`ValidateWorkflow`) alongside Run (open item 4).
+- On acceptance, switch to the existing job/events view scoped to the returned `run_id`.
+
+### Phase 3 -- runs management view (list / cancel / pause / resume)
+
+Section 7, composing on top of phases 1-2.
+
+- A runs table from `ListWorkflowRuns` (name, status, step rollup, timestamps), kept live
+  from the four lifecycle events, including finished runs across daemon restarts.
+- Per-run controls -- Cancel (confirm first), Pause (surfacing the `pause_in_flight_jobs`
+  choice), Resume -- each calling one lifecycle RPC and reflecting the subsequent
+  status-change event; controls hidden/disabled once terminal.
+- Rows join to the existing jobs view by `workflow_run_id`; expanding a run shows its
+  steps, and a `Job` step links to its runtime job and tasks. The view composes with the
+  job surface rather than duplicating it.
+
+### Deferred (not in the first implementation)
+
+- Read-only graph preview (section 8) -- a plain step list suffices for v1.
+- Params-file / saved parameter-set load (section 11, manual entry only in v1).
+- Whether runs also appear in the single-job history surface (section 11, still open).
