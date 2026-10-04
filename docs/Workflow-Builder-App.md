@@ -1,8 +1,9 @@
 # Workflow Builder App (Research / Design)
 
-Status: In progress. The design below is implemented through Step 10 of the build
-order (section 16) on branch `feat/workflow-builder-scaffold`; only the Tier-2
-Playwright E2E suite (Step 11) remains. See "Implementation status" at the end of
+Status: Complete. The design below is implemented through Step 11 of the build
+order (section 16) on branch `feat/workflow-builder-scaffold`: all logic, UI, and
+both test tiers (Tier-1 Vitest at the 100% gate and the Tier-2 Playwright E2E suite)
+are in place. See "Implementation status" at the end of
 section 16 for what has shipped. This is a companion to `docs/Workflow-File-Format.md`
 and depends on that format being the single source of truth for what a node can be and
 how a graph serializes.
@@ -798,8 +799,8 @@ UI, cheapest-first:
    rather than fast unit tests.
 10. **Import/Export wiring** (`io/`, done) + browser file dialogs: connect the file
     open/save abstraction to the serializer. Mostly glue once 3 and 9 exist.
-11. **Playwright E2E suite** (pending): the Tier-2 flows (drag/wire/zoom/modal/view-mode,
-    export-then-reimport equality) once the canvas is interactive.
+11. **Playwright E2E suite** (done): the Tier-2 flows (drag/wire/zoom/modal/view-mode,
+    export-then-reimport equality) now the canvas is interactive.
 
 Rationale: logic before pixels means the canvas is a view over already-proven state;
 the graph model (3) is third because everything visual is a projection of it; the
@@ -808,7 +809,7 @@ test loop.
 
 ### Implementation status
 
-Steps 0-10 are implemented on branch `feat/workflow-builder-scaffold`. The Tier-1
+Steps 0-11 are implemented on branch `feat/workflow-builder-scaffold`. The Tier-1
 Vitest suite is green at the 100% per-file coverage gate (lines/functions/branches/
 statements), and `tsc --noEmit`, ESLint and `vite build` all pass.
 
@@ -839,7 +840,32 @@ Coverage exclusions (justified in-code, listed in `vitest.config.ts`): `main.tsx
 `io/file-access.ts` (browser file-dialog + download glue). Each is driven only through
 the DOM and is consumed via a mock in tests.
 
-**Remaining (Step 11)**: the Playwright Tier-2 E2E suite. Deferred to macOS because
-the Windows `playwright-cli` crashes on its first window open per invocation
-(`UV_HANDLE_CLOSING`), which makes an authored E2E loop impractical here; the suite
-will be written and run on a Mac.
+**Tier-2 E2E (Step 11, shipped)**: the Playwright suite lives in `src/workflow-builder/e2e/`
+and runs via `npm run e2e` (build + `vite preview` + `playwright test`), a separate CI
+step that is not merged into the Vitest 100% coverage number. 20 specs across four
+files cover the gestures jsdom cannot run: `canvas.spec.ts` (seed pipeline renders,
+add each step type, port-to-port wiring creates a dependency edge, **cycle-creating
+connections rejected at draw time** incl. self-loops, right-click delete and
+clear-connections, pan/zoom via the controls); `property-modal.spec.ts` (double-click
+opens the schema-driven modal, edit+save reflects on the canvas and flows to the
+serialized document, cancel discards, delete removes the node); `view-modes.spec.ts`
+(Visual/Editor/Split visibility, **an Editor edit re-renders the canvas in Split**);
+and `import-export.spec.ts` (export downloads the canonical document, import replaces
+the model, a malformed import surfaces an error without corrupting the model, and
+**export -> re-import -> re-export round-trip equality**).
+
+Two harness notes for whoever maintains the suite:
+
+- Editor content is read and written through the Ace editor instance's
+  `getValue()`/`setValue()` (via `e2e/helpers.ts`), never by scraping the DOM: Ace
+  **virtualizes** its lines, so off-screen rows do not render into `.ace_line` and are
+  padded with placeholder glyphs, which makes DOM text unreliable for any content
+  scrolled out of view.
+- File open/save is driven by forcing the File System Access API off in an init script
+  (`forceFileFallbacks`), so `open()` takes the hidden `<input type=file>` path
+  (driven with `setFiles`) and `save()` takes the Blob download (captured with
+  `waitForEvent('download')`) - the deterministic fallbacks Playwright can drive,
+  instead of the native pickers it cannot.
+
+It runs on macOS; the Windows `playwright-cli` crashes on its first window open per
+invocation (`UV_HANDLE_CLOSING`), which is why the suite was authored and run on a Mac.
