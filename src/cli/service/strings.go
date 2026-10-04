@@ -10,6 +10,11 @@ const (
 	strPSKEnvVarNotSet    = "%s environment variable not set, required to enable PreSharedKey"
 	strPSKDecryptFailed   = "failed to decrypt API server key: %s"
 
+	// Workflow run reconciliation (daemon boot)
+	strWorkflowReconcileStoreFailed = "Workflow run reconciliation skipped: unable to open the run store: %s"
+	strWorkflowReconcileFailed      = "Workflow run reconciliation failed: %s"
+	strWorkflowReconciled           = "Reconciled %d interrupted workflow run(s) to FAILED on startup"
+
 	// API Server strings
 	strUploadMissingTransferProfiles = "upload file request missing or invalid transfer profile"
 	strUnableToWriteConfig           = "unable to write configuration file"

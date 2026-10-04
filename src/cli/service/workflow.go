@@ -11,6 +11,7 @@ import (
 
 	"github.com/awslabs/filemoverexpress/config"
 	"github.com/awslabs/filemoverexpress/constants"
+	"github.com/awslabs/filemoverexpress/events"
 	fmev1 "github.com/awslabs/filemoverexpress/types/pbtypes/fme/v1"
 	"github.com/awslabs/filemoverexpress/workflow"
 )
@@ -55,6 +56,28 @@ func workflowManager() (*workflow.WorkflowManager, error) {
 		}
 	})
 	return workflowMgr, workflowMgrErr
+}
+
+// ReconcileWorkflowRuns runs restart reconciliation over the persisted workflow runs once
+// on daemon boot: a run left non-terminal by a previous process (whose in-memory jobs did
+// not survive the restart) is marked FAILED with its steps fixed up. It is best-effort at
+// startup -- a failure to open the run store or list runs is logged and swallowed so a
+// stale run record never prevents the daemon from starting -- so it returns nothing and is
+// safe to call before the service begins accepting requests.
+func ReconcileWorkflowRuns() {
+	mgr, err := workflowManager()
+	if err != nil {
+		events.Events.Warn(strWorkflowReconcileStoreFailed, err)
+		return
+	}
+	n, err := mgr.Reconcile()
+	if err != nil {
+		events.Events.Warn(strWorkflowReconcileFailed, err)
+		return
+	}
+	if n > 0 {
+		events.Events.Info(strWorkflowReconciled, n)
+	}
 }
 
 // openWorkflowRunStore opens the dedicated bbolt database for workflow run records, under

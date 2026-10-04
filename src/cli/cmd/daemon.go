@@ -75,6 +75,7 @@ func runDaemon(cmd *cobra.Command, _ []string) {
 	checkRemoteFlagUsage(cmd)
 	transferstats.Initialize()
 	hotFolder.Init()
+	service.ReconcileWorkflowRuns()
 	initOIDCProvider()
 
 	addressFlagUsed := cmd.Flags().Lookup("address").Changed

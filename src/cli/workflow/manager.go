@@ -82,6 +82,25 @@ func (m *WorkflowManager) List() ([]*WorkflowRun, error) {
 	return m.store.List()
 }
 
+// Reconcile applies restart reconciliation to every persisted run on daemon boot: a run
+// left PENDING/RUNNING/PAUSED by a previous process (whose in-memory jobs did not survive)
+// is marked FAILED with its non-terminal steps fixed up, and only the changed records are
+// rewritten. It returns the number of runs reconciled. Call it once at startup, before the
+// service begins accepting new runs; a per-record save failure is logged (not fatal) and
+// does not abort reconciling the rest, since a stale non-terminal record is a cosmetic
+// inconsistency, not a reason to block the daemon from starting.
+func (m *WorkflowManager) Reconcile() (int, error) {
+	runs, err := m.store.List()
+	if err != nil {
+		return 0, fmt.Errorf("workflow: listing runs for reconciliation: %w", err)
+	}
+	changed := ReconcileAll(runs)
+	for _, run := range changed {
+		m.persist(run)
+	}
+	return len(changed), nil
+}
+
 // Cancel cancels an active run: it stops scheduling, skips not-yet-started steps, and
 // cascades to in-flight jobs. It errors when the run id is unknown or already terminal
 // (no active engine is tracked for it), so a handler can report that rather than silently

@@ -385,3 +385,89 @@ func TestWorkflowManagerJobLifecycleFactoryWiredAndCleaned(t *testing.T) {
 		return factoryRunID == runID && cleaned
 	}, "factory wired for run and cleaned up on finish")
 }
+
+// listErrStore fails List, exercising Reconcile's list-error branch.
+type listErrStore struct{ inner *memStore }
+
+func (s *listErrStore) Save(r *WorkflowRun) error            { return s.inner.Save(r) }
+func (s *listErrStore) Load(id string) (*WorkflowRun, error) { return s.inner.Load(id) }
+func (*listErrStore) List() ([]*WorkflowRun, error)          { return nil, errNotFound }
+func (s *listErrStore) Delete(id string) error               { return s.inner.Delete(id) }
+
+func TestWorkflowManagerReconcileMarksInterruptedRuns(t *testing.T) {
+	store := newMemStore()
+	// Seed three persisted runs as if a prior daemon was interrupted: one RUNNING (with an
+	// in-flight step), one already SUCCEEDED (terminal, must be untouched), one PENDING.
+	seed := []*WorkflowRun{
+		{RunID: "run-running", Status: RunRunning, Steps: []WorkflowStep{{StepID: "s", Status: StepRunning}}},
+		{RunID: "run-done", Status: RunSucceeded, Steps: []WorkflowStep{{StepID: "s", Status: StepSucceeded}}},
+		{RunID: "run-pending", Status: RunPending, Steps: []WorkflowStep{{StepID: "s", Status: StepPending}}},
+	}
+	for _, r := range seed {
+		if err := store.Save(r); err != nil {
+			t.Fatalf("seed save: %v", err)
+		}
+	}
+
+	mgr := managerFor(store)
+	n, err := mgr.Reconcile()
+	if err != nil {
+		t.Fatalf("Reconcile: %v", err)
+	}
+	if n != 2 {
+		t.Fatalf("reconciled count = %d, want 2 (the running and pending runs)", n)
+	}
+
+	running, _ := store.Load("run-running")
+	if running.Status != RunFailed || running.Steps[0].Status != StepFailed {
+		t.Errorf("interrupted RUNNING run = (%s, step %s), want (FAILED, FAILED)", running.Status, running.Steps[0].Status)
+	}
+	pending, _ := store.Load("run-pending")
+	if pending.Status != RunFailed || pending.Steps[0].Status != StepSkipped {
+		t.Errorf("interrupted PENDING run = (%s, step %s), want (FAILED, SKIPPED)", pending.Status, pending.Steps[0].Status)
+	}
+	done, _ := store.Load("run-done")
+	if done.Status != RunSucceeded || done.Steps[0].Status != StepSucceeded {
+		t.Errorf("terminal run was rewritten: (%s, step %s)", done.Status, done.Steps[0].Status)
+	}
+}
+
+func TestWorkflowManagerReconcileNoRuns(t *testing.T) {
+	mgr := managerFor(newMemStore())
+	n, err := mgr.Reconcile()
+	if err != nil || n != 0 {
+		t.Fatalf("Reconcile on empty store = (%d, %v), want (0, nil)", n, err)
+	}
+}
+
+func TestWorkflowManagerReconcileListError(t *testing.T) {
+	mgr := managerFor(&listErrStore{inner: newMemStore()})
+	if _, err := mgr.Reconcile(); err == nil {
+		t.Error("Reconcile should return an error when the store List fails")
+	}
+}
+
+func TestWorkflowManagerReconcilePersistErrorIsNotFatal(t *testing.T) {
+	// A store that lists an interrupted run but fails every Save: Reconcile logs the
+	// per-record save failure and still reports it reconciled the record (count reflects
+	// ReconcileAll's changed set, not the persistence outcome), without erroring out.
+	inner := newMemStore()
+	_ = inner.Save(&WorkflowRun{RunID: "r", Status: RunRunning, Steps: []WorkflowStep{{StepID: "s", Status: StepRunning}}})
+	mgr := managerFor(&saveAlwaysFails{inner: inner})
+	n, err := mgr.Reconcile()
+	if err != nil {
+		t.Fatalf("Reconcile must not fail on a per-record save error: %v", err)
+	}
+	if n != 1 {
+		t.Fatalf("reconciled count = %d, want 1", n)
+	}
+}
+
+// saveAlwaysFails lists from its inner store but fails every Save, so Reconcile's persist
+// of a changed record hits the logged-not-fatal error path.
+type saveAlwaysFails struct{ inner *memStore }
+
+func (*saveAlwaysFails) Save(*WorkflowRun) error                { return errNotFound }
+func (s *saveAlwaysFails) Load(id string) (*WorkflowRun, error) { return s.inner.Load(id) }
+func (s *saveAlwaysFails) List() ([]*WorkflowRun, error)        { return s.inner.List() }
+func (s *saveAlwaysFails) Delete(id string) error               { return s.inner.Delete(id) }
