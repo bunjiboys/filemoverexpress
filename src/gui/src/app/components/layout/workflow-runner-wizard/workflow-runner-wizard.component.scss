@@ -1,0 +1,235 @@
+@use "../../../../styles/variables";
+@use "../../../../styles/custom-fields";
+@use "../../../../styles/fonts";
+
+.fme-workflow-runner-wizard {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    font-family: fonts.$font-family;
+    color: custom-fields.$regular-text-color;
+}
+
+// region stepper
+.fme-stepper {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.fme-stepper-step {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: custom-fields.$placeholder-text-color;
+}
+
+.fme-step-index {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: solid 1px custom-fields.$form-field-border-color;
+    font-size: 11px;
+}
+
+.fme-step-done .fme-step-index {
+    background: variables.$green-600;
+    border-color: variables.$green-600;
+    color: variables.$white;
+}
+
+.fme-step-current {
+    color: custom-fields.$regular-text-color;
+    font-weight: 600;
+
+    .fme-step-index {
+        background: variables.$active;
+        border-color: variables.$active;
+        color: variables.$white;
+    }
+}
+// endregion stepper
+
+.fme-wizard-body {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+// region parameters split
+.fme-parameters-split {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 24px;
+}
+
+.fme-wizard-form {
+    flex: 1 1 60%;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.fme-wizard-rail {
+    flex: 0 0 34%;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px;
+    background: variables.$background-menu;
+    border: solid 1px custom-fields.$form-field-border-color;
+    border-radius: custom-fields.$form-field-border-radius;
+}
+
+.fme-rail-title {
+    margin: 0;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: custom-fields.$placeholder-text-color;
+}
+
+.fme-rail-name {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.fme-rail-meta {
+    margin: 0;
+    font-size: 11px;
+    color: custom-fields.$placeholder-text-color;
+}
+
+.fme-rail-params,
+.fme-rail-steps,
+.fme-confirm-steps {
+    margin: 4px 0 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.fme-rail-param {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 11px;
+}
+
+.fme-rail-param-value {
+    color: custom-fields.$placeholder-text-color;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 160px;
+}
+
+.fme-rail-overridden {
+    .fme-rail-param-value,
+    .fme-confirm-param-value {
+        color: variables.$orange-accent;
+    }
+}
+
+.fme-rail-step,
+.fme-confirm-steps li {
+    font-size: 11px;
+    color: custom-fields.$regular-text-color;
+}
+
+.fme-rail-step-type {
+    font-size: 10px;
+    color: custom-fields.$placeholder-text-color;
+}
+
+.fme-rail-status {
+    margin: 8px 0 0;
+    font-size: 11px;
+    color: variables.$orange-accent;
+
+    &.fme-rail-ready {
+        color: variables.$green-500;
+    }
+}
+// endregion parameters split
+
+// region confirm
+.fme-confirm-title {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.fme-confirm-params {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+
+.fme-confirm-param-name {
+    font-weight: 600;
+    padding: 2px 8px 2px 0;
+}
+
+.fme-confirm-param-value {
+    color: custom-fields.$regular-text-color;
+    padding: 2px 8px;
+}
+
+.fme-confirm-param-flag {
+    font-size: 10px;
+    color: variables.$orange-accent;
+    text-align: right;
+}
+// endregion confirm
+
+// region actions
+.fme-wizard-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.fme-wizard-actions button {
+    padding: 6px 14px;
+    border-radius: custom-fields.$form-field-border-radius;
+    font-family: fonts.$font-family;
+    font-size: 12px;
+    cursor: pointer;
+    border: solid 1px custom-fields.$form-field-border-color;
+    background: transparent;
+    color: custom-fields.$regular-text-color;
+
+    &:hover {
+        background: variables.$background-menu-hover;
+    }
+}
+
+.fme-wizard-next,
+.fme-wizard-run {
+    background: variables.$active;
+    border-color: variables.$active;
+    color: variables.$white;
+
+    &:hover {
+        background: variables.$blue-400;
+    }
+
+    &:disabled {
+        background: variables.$background-disabled-button;
+        border-color: variables.$background-disabled-button;
+        color: custom-fields.$placeholder-text-color;
+        cursor: not-allowed;
+    }
+}
+// endregion actions

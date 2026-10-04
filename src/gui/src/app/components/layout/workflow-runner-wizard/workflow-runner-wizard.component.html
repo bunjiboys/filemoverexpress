@@ -1,0 +1,108 @@
+<div class="fme-workflow-runner-wizard">
+    <!-- Stepper -->
+    <ol class="fme-stepper">
+        <li class="fme-stepper-step fme-step-done">
+            <span class="fme-step-index">1</span>
+            <span class="fme-step-label">Open</span>
+        </li>
+        <li class="fme-stepper-step" [class.fme-step-current]="step() === 'parameters'">
+            <span class="fme-step-index">2</span>
+            <span class="fme-step-label">Parameters</span>
+        </li>
+        <li class="fme-stepper-step" [class.fme-step-current]="step() === 'confirm'">
+            <span class="fme-step-index">3</span>
+            <span class="fme-step-label">Confirm</span>
+        </li>
+    </ol>
+
+    @if (step() === 'parameters') {
+        <div class="fme-wizard-body fme-parameters-split">
+            <!-- Field form -->
+            <div class="fme-wizard-form">
+                @for (param of parameters(); track param.name) {
+                    @if (isArray(param)) {
+                        <fme-string-array-field
+                            [parameter]="param"
+                            [values]="asArray(valueOf(param.name))"
+                            (valuesChange)="setValue(param.name, $event)">
+                        </fme-string-array-field>
+                    } @else {
+                        <fme-scalar-field
+                            [parameter]="param"
+                            [value]="asScalar(valueOf(param.name))"
+                            (valueChange)="setValue(param.name, $event)">
+                        </fme-scalar-field>
+                    }
+                }
+            </div>
+
+            <!-- Live "What will run" rail -->
+            <aside class="fme-wizard-rail">
+                <h3 class="fme-rail-title">What will run</h3>
+                <p class="fme-rail-name">{{ document().name }}</p>
+                <p class="fme-rail-meta">
+                    {{ document().steps.length }} steps &middot; {{ paramsSetCount() }}/{{ parameters().length }} set
+                </p>
+
+                <ul class="fme-rail-params">
+                    @for (param of parameters(); track param.name) {
+                        <li class="fme-rail-param" [class.fme-rail-overridden]="isOverridden(param)">
+                            <span class="fme-rail-param-name">{{ param.name }}</span>
+                            <span class="fme-rail-param-value">{{ displayValue(param) || '(unset)' }}</span>
+                        </li>
+                    }
+                </ul>
+
+                <ul class="fme-rail-steps">
+                    @for (s of document().steps; track s.id) {
+                        <li class="fme-rail-step">{{ s.name || s.id }} <span class="fme-rail-step-type">{{ s.type }}</span></li>
+                    }
+                </ul>
+
+                <p class="fme-rail-status" [class.fme-rail-ready]="ready()">
+                    {{ ready() ? 'Ready to run' : 'Some parameters need attention' }}
+                </p>
+            </aside>
+        </div>
+
+        <div class="fme-wizard-actions">
+            <button type="button" class="fme-wizard-validate" (click)="validate()">Validate</button>
+            <button type="button" class="fme-wizard-next" [disabled]="!ready()" (click)="next()">Next: Confirm</button>
+        </div>
+    } @else {
+        <div class="fme-wizard-body fme-confirm">
+            <h3 class="fme-confirm-title">Confirm run</h3>
+            <p class="fme-rail-name">{{ document().name }}</p>
+
+            @if (parameters().length > 0) {
+                <table class="fme-confirm-params">
+                    <tbody>
+                        @for (param of parameters(); track param.name) {
+                            <tr [class.fme-rail-overridden]="isOverridden(param)">
+                                <td class="fme-confirm-param-name">{{ param.name }}</td>
+                                <td class="fme-confirm-param-value">{{ displayValue(param) || '(unset)' }}</td>
+                                <td class="fme-confirm-param-flag">
+                                    @if (isOverridden(param)) { overridden }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+
+            <ul class="fme-confirm-steps">
+                @for (s of document().steps; track s.id) {
+                    <li>{{ s.name || s.id }} <span class="fme-rail-step-type">{{ s.type }}</span></li>
+                }
+            </ul>
+        </div>
+
+        <div class="fme-wizard-actions">
+            @if (parameters().length > 0) {
+                <button type="button" class="fme-wizard-back" (click)="back()">Back</button>
+            }
+            <button type="button" class="fme-wizard-validate" (click)="validate()">Validate</button>
+            <button type="button" class="fme-wizard-run" (click)="run()">Run</button>
+        </div>
+    }
+</div>
