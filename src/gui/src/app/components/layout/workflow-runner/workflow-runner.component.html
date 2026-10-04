@@ -23,7 +23,8 @@
         <fme-workflow-runner-wizard
             [document]="doc"
             (runRequested)="onRun($event)"
-            (validateRequested)="onValidate($event)">
+            (validateRequested)="onValidate($event)"
+            (browseRequested)="onBrowse($event)">
         </fme-workflow-runner-wizard>
     } @else if (!documentError()) {
         <p class="fme-runner-empty">Open an externally-authored workflow file to run it.</p>

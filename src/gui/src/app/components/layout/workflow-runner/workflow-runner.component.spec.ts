@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { MatDialog } from '@angular/material/dialog';
 import { WailsService } from '@services/wails/wails.service';
 import { FmeClientService } from '@services/fme-client/fme-client.service';
 import { WorkflowFormat, WorkflowValidationErrorKind } from '@gen/es/fme/v1/workflow_pb';
@@ -33,17 +34,21 @@ describe('WorkflowRunnerComponent', () => {
     let readTextFile: ReturnType<typeof vi.fn>;
     let runWorkflow: ReturnType<typeof vi.fn>;
     let validateWorkflow: ReturnType<typeof vi.fn>;
+    let dialogOpen: ReturnType<typeof vi.fn>;
 
     function build(): void {
         openFile = vi.fn(() => of('/wf/nightly.yaml'));
         readTextFile = vi.fn(() => of(validYaml));
         runWorkflow = vi.fn(() => of({accepted: true, runId: 'run-1', errors: []}));
         validateWorkflow = vi.fn(() => of({valid: true, errors: []}));
+        dialogOpen = vi.fn(() => ({afterClosed: () => of(undefined)}));
 
         TestBed.configureTestingModule({
             imports: [WorkflowRunnerComponent],
             providers: [
-                {provide: WailsService, useValue: {openFile, readTextFile}}, {provide: FmeClientService, useValue: {runWorkflow, validateWorkflow}},
+                {provide: WailsService, useValue: {openFile, readTextFile}},
+                {provide: FmeClientService, useValue: {runWorkflow, validateWorkflow}},
+                {provide: MatDialog, useValue: {open: dialogOpen}},
             ],
         });
         fixture = TestBed.createComponent(WorkflowRunnerComponent);
@@ -214,6 +219,31 @@ describe('WorkflowRunnerComponent', () => {
             component.openWorkflow();
             component.onRun({documentText: validYaml, format: 'yaml', params: []});
             expect(component.fieldErrorList()).toEqual([{name: 'bucket', message: 'required'}]);
+        });
+    });
+
+    describe('browse picker', () => {
+        it('opens the source picker and feeds the returned paths into the wizard field', () => {
+            dialogOpen.mockReturnValue({afterClosed: () => of(['/vol/cardA', '/vol/cardB'])});
+            component.openWorkflow();
+            const append = vi.fn();
+            component.wizard = {appendValues: append} as unknown as WorkflowRunnerComponent['wizard'];
+
+            component.onBrowse('source_dir');
+
+            expect(dialogOpen).toHaveBeenCalled();
+            expect(append).toHaveBeenCalledWith('source_dir', ['/vol/cardA', '/vol/cardB']);
+        });
+
+        it('does nothing when the picker is cancelled (no paths)', () => {
+            dialogOpen.mockReturnValue({afterClosed: () => of(undefined)});
+            component.openWorkflow();
+            const append = vi.fn();
+            component.wizard = {appendValues: append} as unknown as WorkflowRunnerComponent['wizard'];
+
+            component.onBrowse('source_dir');
+
+            expect(append).not.toHaveBeenCalled();
         });
     });
 });

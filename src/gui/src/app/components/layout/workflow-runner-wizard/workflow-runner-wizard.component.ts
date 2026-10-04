@@ -55,6 +55,8 @@ export class WorkflowRunnerWizardComponent {
     runRequested = output<WorkflowRunSubmission>();
     /** Emits when the user clicks Validate; the host calls ValidateWorkflow. */
     validateRequested = output<WorkflowRunSubmission>();
+    /** Emits a string_array parameter's name when its Browse button is clicked. */
+    browseRequested = output<string>();
 
     /** The current wizard step. */
     readonly step = signal<WizardStep>('parameters');
@@ -141,6 +143,26 @@ export class WorkflowRunnerWizardComponent {
         const next = new Map(this.fieldValues());
         next.set(name, value);
         this.fieldValues.set(next);
+    }
+
+    /** Relay a string_array field's Browse click up to the host (which opens the picker). */
+    onBrowse(name: string): void {
+        this.browseRequested.emit(name);
+    }
+
+    /**
+     * Append picked paths to a string_array field, de-duplicating against existing values.
+     * Called by the host after the source picker returns a selection.
+     */
+    appendValues(name: string, paths: string[]): void {
+        const current = this.asArray(this.valueOf(name));
+        const merged = [...current];
+        for (const p of paths) {
+            if (!merged.includes(p)) {
+                merged.push(p);
+            }
+        }
+        this.setValue(name, merged);
     }
 
     /** Advance to the confirm step when ready. */

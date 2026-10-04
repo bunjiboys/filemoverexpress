@@ -1,0 +1,86 @@
+@use "../../../../styles/variables";
+@use "../../../../styles/custom-fields";
+@use "../../../../styles/fonts";
+
+.fme-source-picker {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+    max-width: 760px;
+    height: 100%;
+    max-height: 520px;
+    box-sizing: border-box;
+    font-family: fonts.$font-family;
+    color: custom-fields.$regular-text-color;
+}
+
+.fme-source-picker-title {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.fme-source-picker-hint {
+    margin: 0;
+    font-size: 11px;
+    color: custom-fields.$placeholder-text-color;
+}
+
+.fme-source-picker-browser {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+    border: solid 1px custom-fields.$form-field-border-color;
+    border-radius: custom-fields.$form-field-border-radius;
+    background: variables.$background-browser-panel;
+}
+
+.fme-source-picker-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.fme-source-picker-count {
+    font-size: 12px;
+    color: custom-fields.$placeholder-text-color;
+}
+
+.fme-source-picker-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.fme-source-picker-actions button {
+    padding: 6px 14px;
+    border-radius: custom-fields.$form-field-border-radius;
+    border: solid 1px custom-fields.$form-field-border-color;
+    background: transparent;
+    color: custom-fields.$regular-text-color;
+    font-family: fonts.$font-family;
+    font-size: 12px;
+    cursor: pointer;
+
+    &:hover {
+        background: variables.$background-menu-hover;
+    }
+}
+
+.fme-source-picker-add {
+    background: variables.$active;
+    border-color: variables.$active;
+    color: variables.$white;
+
+    &:hover {
+        background: variables.$blue-400;
+    }
+
+    &:disabled {
+        background: variables.$background-disabled-button;
+        border-color: variables.$background-disabled-button;
+        color: custom-fields.$placeholder-text-color;
+        cursor: not-allowed;
+    }
+}

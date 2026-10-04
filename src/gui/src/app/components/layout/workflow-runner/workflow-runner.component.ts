@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, computed, inject, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, output, signal, ViewChild } from '@angular/core';
+import { MatDialog } from '@angular/material/dialog';
 import { WailsService } from '@services/wails/wails.service';
 import { FmeClientService } from '@services/fme-client/fme-client.service';
 import {
@@ -12,6 +13,10 @@ import {
     WorkflowRunnerWizardComponent,
     WorkflowRunSubmission,
 } from '@app/components/layout/workflow-runner-wizard/workflow-runner-wizard.component';
+import {
+    WorkflowSourcePickerData,
+    WorkflowSourcePickerModalComponent,
+} from '@app/components/modals/workflow-source-picker-modal/workflow-source-picker-modal.component';
 
 /** Per-parameter field errors, keyed by parameter name (from PARAMETER-kind daemon errors). */
 type FieldErrors = Record<string, string>;
@@ -39,6 +44,10 @@ type FieldErrors = Record<string, string>;
 export class WorkflowRunnerComponent {
     private wails = inject(WailsService);
     private fmeClient = inject(FmeClientService);
+    private dialog = inject(MatDialog);
+
+    /** The embedded wizard, so a source-picker result can be fed back into a field. */
+    @ViewChild(WorkflowRunnerWizardComponent) wizard?: WorkflowRunnerWizardComponent;
 
     /** Emits the run id when a run is accepted, so the host view can scope the jobs view. */
     runStarted = output<string>();
@@ -117,6 +126,23 @@ export class WorkflowRunnerComponent {
                 },
                 error: (err: unknown) => this.failDocument(errorText(err)),
             });
+    }
+
+    /**
+     * Open the source-picker modal in response to a string_array field's Browse click, and
+     * feed the chosen paths back into that field via the wizard. The picker is select-only
+     * (pick mode); it returns the chosen paths or undefined on cancel.
+     */
+    onBrowse(parameterName: string): void {
+        const data: WorkflowSourcePickerData = {initialDirectory: '/'};
+        this.dialog.open<WorkflowSourcePickerModalComponent, WorkflowSourcePickerData, string[] | undefined>(
+            WorkflowSourcePickerModalComponent,
+            {data, panelClass: 'fme-source-picker-panel'},
+        ).afterClosed().subscribe((paths) => {
+            if (paths && paths.length > 0) {
+                this.wizard?.appendValues(parameterName, paths);
+            }
+        });
     }
 
     /** Route daemon validation errors: PARAMETER -> field, everything else -> banner. */

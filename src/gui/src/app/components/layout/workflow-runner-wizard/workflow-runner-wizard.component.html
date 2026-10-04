@@ -24,7 +24,8 @@
                         <fme-string-array-field
                             [parameter]="param"
                             [values]="asArray(valueOf(param.name))"
-                            (valuesChange)="setValue(param.name, $event)">
+                            (valuesChange)="setValue(param.name, $event)"
+                            (browseRequested)="onBrowse(param.name)">
                         </fme-string-array-field>
                     } @else {
                         <fme-scalar-field

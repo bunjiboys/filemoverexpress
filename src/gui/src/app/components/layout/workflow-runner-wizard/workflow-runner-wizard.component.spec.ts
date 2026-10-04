@@ -211,4 +211,28 @@ describe('WorkflowRunnerWizardComponent', () => {
             expect(steps[2].textContent).toContain('Confirm');
         });
     });
+
+    describe('browse relay + appendValues', () => {
+        it('emits browseRequested with the parameter name', () => {
+            build(doc({parameters: [param({name: 'src', type: 'string_array'})]}));
+            const browse = vi.fn();
+            component.browseRequested.subscribe(browse);
+            component.onBrowse('src');
+            expect(browse).toHaveBeenCalledWith('src');
+        });
+
+        it('appends picked paths to a string_array field', () => {
+            build(doc({parameters: [param({name: 'src', type: 'string_array', default: ['/a']})]}));
+            component.appendValues('src', ['/b', '/c']);
+            expect(component.valueOf('src')).toEqual(['/a',
+                '/b',
+                '/c']);
+        });
+
+        it('de-duplicates appended paths against existing values', () => {
+            build(doc({parameters: [param({name: 'src', type: 'string_array', default: ['/a']})]}));
+            component.appendValues('src', ['/a', '/b']);
+            expect(component.valueOf('src')).toEqual(['/a', '/b']);
+        });
+    });
 });
