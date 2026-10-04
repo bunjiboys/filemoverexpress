@@ -1,0 +1,26 @@
+version: '3'
+
+# Workflow Builder (standalone static site) tasks. Thin wrappers over the package's
+# npm scripts, matching the repo's Task-driven convention (docs/Workflow-Builder-App.md
+# section 12). No Go/Wails targets: this is a frontend-only package.
+
+tasks:
+  build:
+    desc: Build the Workflow Builder static site (dist/)
+    cmds:
+      - npm run build
+
+  test:
+    desc: Run Tier-1 Vitest unit/component tests with the 100% coverage gate
+    cmds:
+      - npm test
+
+  e2e:
+    desc: Run Tier-2 Playwright E2E suite against the built app
+    cmds:
+      - npm run e2e
+
+  lint:
+    desc: Run ESLint for the Workflow Builder
+    cmds:
+      - npm run lint

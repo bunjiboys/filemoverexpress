@@ -1,0 +1,24 @@
+name: 'Test Workflow Builder'
+description: 'Runs the Tier-1 Vitest unit/component suite (100% coverage gate) for the Workflow Builder'
+
+inputs:
+  coverage:
+    description: 'Generate and upload the coverage report'
+    required: false
+    default: 'true'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Run Workflow Builder unit tests
+      working-directory: src/workflow-builder
+      run: task test
+      shell: bash
+
+    - name: Upload coverage
+      if: inputs.coverage == 'true'
+      uses: actions/upload-artifact@v4 # v4.6.2
+      with:
+        name: workflow-builder-coverage
+        path: src/workflow-builder/coverage/
+        retention-days: 14

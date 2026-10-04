@@ -42,6 +42,7 @@ jobs:
       - uses: ./.github/actions/lint-gui
       - uses: ./.github/actions/lint-cli
       - uses: ./.github/actions/lint-protobuf
+      - uses: ./.github/actions/lint-workflow-builder
 
   test-cli:
     needs: [generate-protobuf, generate-bindings]
@@ -78,3 +79,21 @@ jobs:
         shell: bash
       - name: Run Wails tests
         run: task wails:test
+
+  test-workflow-builder:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4 # v4
+      - uses: ./.github/actions/setup-environment
+        with:
+          install-go: 'false'
+      - uses: ./.github/actions/test-workflow-builder
+
+  e2e-workflow-builder:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4 # v4
+      - uses: ./.github/actions/setup-environment
+        with:
+          install-go: 'false'
+      - uses: ./.github/actions/e2e-workflow-builder

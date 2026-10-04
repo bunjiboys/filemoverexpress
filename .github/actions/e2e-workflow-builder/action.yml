@@ -1,0 +1,29 @@
+name: 'E2E Workflow Builder'
+description: 'Runs the Tier-2 Playwright E2E suite against the built Workflow Builder. Separate from the unit coverage gate.'
+
+runs:
+  using: 'composite'
+  steps:
+    # Playwright pins its browser build to the @playwright/test version, so install the
+    # matching Chromium (not vendored in the repo). ffmpeg etc. come along as needed.
+    - name: Install Playwright Chromium
+      working-directory: src/workflow-builder
+      run: npx playwright install --with-deps chromium
+      shell: bash
+
+    - name: Run Workflow Builder E2E suite
+      working-directory: src/workflow-builder
+      # `task e2e` -> `npm run e2e` -> `playwright test`, which builds the app and serves
+      # it via `vite preview` per playwright.config.ts before running the specs.
+      run: task e2e
+      shell: bash
+
+    - name: Upload Playwright report on failure
+      if: failure()
+      uses: actions/upload-artifact@v4 # v4.6.2
+      with:
+        name: workflow-builder-playwright-report
+        path: |
+          src/workflow-builder/playwright-report/
+          src/workflow-builder/test-results/
+        retention-days: 14

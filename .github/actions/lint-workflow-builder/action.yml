@@ -1,0 +1,10 @@
+name: 'Lint Workflow Builder'
+description: 'Runs ESLint for the standalone Workflow Builder package'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Run Workflow Builder lint
+      working-directory: src/workflow-builder
+      run: task lint
+      shell: bash
