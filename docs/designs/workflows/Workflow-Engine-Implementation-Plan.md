@@ -1,8 +1,8 @@
-# `core/workflow` — Implementation Plan
+# `workflow` — Implementation Plan
 
 Status: Plan / awaiting approval. No code written yet. This plans the daemon-side
 engine specified in `docs/designs/workflows/Workflow-File-Format.md` (the "New surface area" section):
-a new Go package `src/cli/core/workflow/` that parses, validates, schedules, and
+a new Go package `src/cli/workflow/` that parses, validates, schedules, and
 executes a workflow document in-process. It is the blocker for the service handlers
 (`RunWorkflow`/`ValidateWorkflow`), the CLI command, and the GUI runner.
 
@@ -18,7 +18,7 @@ per-file numbers at each phase boundary.
 
 ## 1. Scope of this plan
 
-This plan covers the **engine package only** (`src/cli/core/workflow/`): document
+This plan covers the **engine package only** (`src/cli/workflow/`): document
 types, parser, parameter resolution, validator, DAG scheduler, and the step-executor
 registry with the four v1 executors. It does **not** cover:
 
@@ -58,11 +58,12 @@ Read from the codebase so the plan is accurate, not guessed:
 ## 3. Package layout (proposed)
 
 ```
-src/cli/core/workflow/
+src/cli/workflow/
 ├── types.go            # WorkflowDocument, Step, ParameterSpec, run/step status enums
 ├── parse.go            # YAML/JSON -> WorkflowDocument (gopkg.in/yaml, encoding/json)
+├── schema.go           # //go:embed schemas/workflow/v1.json + JSON Schema validation
 ├── parameters.go       # typed parameter resolution + ${params.*} substitution
-├── validate.go         # schema-shape + DAG rules (acyclic, no dangling id, unique id)
+├── validate.go         # structural + DAG rules (acyclic, no dangling id, unique id)
 ├── pathsafety.go       # post-substitution path/key guards (reusing existing guard)
 ├── dag.go              # topological order + ready/gating computation (pure)
 ├── run.go              # WorkflowRun + run/step status model, status derivation (pure)
@@ -90,9 +91,14 @@ side-effecting shell" structure.
 Each phase is independently reviewable, green, and (except where section 7 flags
 otherwise) at 100% coverage before the next begins.
 
-**Phase A — types + parse (pure).** Document/step/parameter types; YAML→JSON→struct
-parse with a canonical-JSON path. Tests: round-trip, malformed YAML, malformed JSON,
-unknown-field handling (strict vs lenient per the format doc). Fully testable → 100%.
+**Phase A — types + parse + schema (pure).** Document/step/parameter types;
+YAML→JSON→struct parse with a canonical-JSON path; and `schema.go` — the `//go:embed` of
+`schemas/workflow/v1.json` plus a `ValidateAgainstSchema([]byte) []error` entry point
+over the chosen Go JSON-Schema lib. Tests: round-trip, malformed YAML, malformed JSON,
+unknown-field handling (strict vs lenient per the format doc), and schema validation of a
+known-good and several known-bad documents (bad enum, missing required field, wrong type).
+Fully testable → 100%. (If the JSON-Schema lib cannot be vendored cleanly, I stop and flag
+before proceeding — the rest of Phase A does not depend on it.)
 
 **Phase B — parameter resolution (pure).** Port the already-specced precedence (user
 value > default > empty; required/typed-no-default is an error), `${params.*}`
@@ -101,10 +107,11 @@ constraint checks (pattern/min/max/enum values). This mirrors the builder's
 `resolveParameters` logic, now in Go. Table tests cover every type × every outcome →
 100%.
 
-**Phase C — validation + DAG rules (pure).** Shape validation, then the three
-format-doc rules: acyclic graph (name the cycle), no dangling `dependsOn` id, unique
-step ids. Plus path-safety post-substitution. Tests: a valid diamond, a self-loop, a
-2-cycle, a dangling id, a duplicate id, a traversal attempt. Pure → 100%.
+**Phase C — validation + DAG rules (pure).** Run the Phase-A schema validation first,
+then the three format-doc structural rules the schema cannot express: acyclic graph (name
+the cycle), no dangling `dependsOn` id, unique step ids. Plus path-safety
+post-substitution. Tests: a valid diamond, a self-loop, a 2-cycle, a dangling id, a
+duplicate id, a traversal attempt. Pure → 100%.
 
 **Phase D — DAG scheduling (pure core + thin async shell).** `dag.go` computes
 topological order and, given a set of completed step ids, the newly-eligible steps and
@@ -196,9 +203,11 @@ only the one-line call into already-tested transfer code is faked.
   **not** added is a run-level *progress* event: byte progress still rides the existing
   `JobProgressEvent` tagged with `workflow_run_id`/`workflow_step_id` (the fields already
   on `job.proto`). The run layer deals in transitions, not progress ticks.
-- No schema-file validation against `schemas/workflow/v1.json` in Go v1 unless a Go
-  JSON-Schema validator is already vendored — see the open question in section 8. The
-  structural + DAG validation in Phase C stands on its own regardless.
+- Schema validation **is included** (reversing the earlier "deferred" stance): the daemon
+  validates the resolved document against the embedded `schemas/workflow/v1.json` via a Go
+  JSON-Schema library (`schema.go`, `//go:embed`), the same contract the builder validates
+  against. The Phase C structural + DAG checks run **in addition** (JSON Schema cannot
+  express cross-item reference integrity). See decision 1 in section 8.
 
 ## 7. Components where 100% may NOT be achievable — flagged UP FRONT
 
@@ -234,21 +243,49 @@ before I write them rather than discovering it mid-build:
 Everything in Phases A–C and F, the `reconcile.go` rules, plus `Sleep` and `Checksum`, I
 expect to reach 100% with ordinary table/temp-dir tests and no caveat.
 
-## 8. Open questions for you (before coding)
+## 8. Resolved decisions
 
-1. **Go JSON-Schema validation?** The builder validates against
-   `schemas/workflow/v1.json` with ajv. Do we want the daemon to validate against the
-   same schema file (needs a Go JSON-Schema lib — is one acceptable to add, or is one
-   already vendored?), or rely on Go struct unmarshalling + the Phase C structural/DAG
-   checks as the daemon-side authority? The format doc's validator is described in prose,
-   not pinned to a schema lib, so either is defensible.
-2. **Package name.** `workflow` (import `.../core/workflow`) — confirm that reads well
-   against the existing `core/*` siblings.
-3. **Phase granularity for commits.** One commit per phase (A–E), or one commit for the
-   pure core (A–D) and one for the executors (E)?
+1. **Schema validation: YES, against `schemas/workflow/v1.json`, via
+   `github.com/google/jsonschema-go`.** The daemon validates the resolved document against
+   the **same published JSON Schema** the builder uses, so the authoring side and the
+   executing side share one contract and cannot drift. The library is
+   `github.com/google/jsonschema-go` — chosen because it (a) explicitly supports **draft
+   2020-12** (which our schema is, using `$defs` + `allOf`/`if`/`then` for the step-type
+   discriminator), and (b) is **already vendored** in `src/cli` (transitively, v0.4.3), so
+   this adds **zero new dependencies** — importing it only promotes it from indirect to
+   direct in `go.mod`. Alternatives considered: `santhosh-tekuri/jsonschema/v6` (also
+   excellent 2020-12 support, but a fresh dependency tree to vendor — not worth it when a
+   capable lib is already present); `xeipuuv/gojsonschema` and `qri-io/jsonschema`
+   (disqualified — draft-07 / incomplete 2020-12). API shape: unmarshal the embedded
+   `v1.json` into a `jsonschema.Schema`, `Resolve()` once, then `Resolved.Validate(any)` on
+   the parsed document. Phase C's structural + DAG checks (acyclicity, dangling id,
+   unique id) remain **in addition** — JSON Schema cannot express cross-item reference
+   integrity, so schema-validation and structural-validation are complementary, not
+   either/or.
 
-## 9. Deliverable of the first coding turn (if approved)
+   > **`//go:embed` reachability.** The source-of-truth schema is at the repo root
+   > (`schemas/workflow/v1.json`), which `//go:embed` **cannot** reach — it only embeds
+   > files within the embedding package's own directory tree. So Phase A **vendors a copy**
+   > into `src/cli/workflow/schema/v1.json` and embeds that, exactly as the builder already
+   > copies the root schema into `src/workflow-builder/src/schema/v1.json`. The copy is kept
+   > in sync with the root source of truth (a format bump updates both); where this doc or
+   > the vendored copy disagrees with the root schema, the root schema wins. A `task`
+   > target or a test asserting the two files are byte-identical can guard the sync in a
+   > later phase.
+2. **Package placement: top-level `src/cli/workflow/`, NOT under `core/`.** `core/` is the
+   transfer-engine primitives (`upload`, `download`, `checksums`, `transfer-api`,
+   `discovery`, `job_manager`, …). The workflow engine is an **orchestration layer that
+   sits above** those primitives (format doc: "the workflow layer sits entirely above the
+   current transfer engine") and composes them plus `inventory`/`config`. It is therefore
+   a peer of `inventory/` and `service/`, not a sibling of `upload`/`download`. Import
+   path `github.com/awslabs/filemoverexpress/workflow`.
+3. **Commit granularity: one commit per phase (A–H).** Each phase is independently green
+   at 100% coverage, so each is a reviewable commit.
 
-Phase A only: `types.go` + `parse.go` + their tests, green at 100%, `go build` and
-`golangci-lint` clean. Small, reviewable, and it establishes the document types the rest
-of the package builds on. I would stop there for your review before Phase B.
+## 9. Deliverable of the first coding turn (approved)
+
+Phase A only: `types.go` + `parse.go` + the embedded schema loader (the `//go:embed`
+of `schemas/workflow/v1.json` + a validate entry point) + their tests, green at 100%,
+`go build` and `golangci-lint` clean. Small, reviewable, and it establishes the document
+types and the schema-validation seam the rest of the package builds on. I stop there for
+review before Phase B.
