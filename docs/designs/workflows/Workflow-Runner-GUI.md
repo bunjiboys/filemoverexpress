@@ -88,6 +88,7 @@ confirmation (section 6).
 | `float` | numeric input | `default` if set | number; `min`/`max` inclusive bounds when present |
 | `bool` | toggle / checkbox | `default` if set, else unset | none |
 | `enum` | select (dropdown) | `default` if set, else unselected | value must be one of `values` |
+| `string_array` | multi-chip input with a **Browse** button (opens the File Browser for multi-select); each selected path is a removable chip | `default` array if set, else empty | `pattern` (full-match RE2) applied to **every** element when present; `required` means at least one element |
 
 Every field also shows:
 
@@ -96,6 +97,25 @@ Every field also shows:
 - The **source of the current value** — whether it is the file's `default` or a user
   override — so the user can tell at a glance what they are changing. Reverting a field
   restores the file's `default`.
+
+### The `string_array` field and Browse
+
+A `string_array` parameter (format doc "Parameter types") is the one list parameter
+type, defined so the runner can contribute **one or more source paths** to a step's
+`sources` array at run time — matching how the existing drag-drop transfer UI already
+treats sources as a list. Its field is a **multi-chip input with a Browse button**:
+
+- **Browse** opens the existing File Browser component (`fme-file-browser`) in a modal,
+  in a select-only *pick mode* (the drag/drop and context-menu transfer actions are
+  suppressed — it is choosing paths, not moving files). The component's native
+  multi-select (click, shift-click range, cmd/ctrl toggle) returns the chosen
+  `FileBrowserObject` paths.
+- Each selected path becomes a **removable chip**; the field value is the ordered list.
+  The user may also type a path directly. A `required` `string_array` with no chips is
+  invalid and blocks the run, exactly like an empty required scalar.
+- Client validation applies the parameter's `pattern` (when set) to **every** element.
+- On submit the chips are sent as the daemon's `WorkflowParamValue.values` repeated
+  field (see section 4), not a joined string.
 
 ### Override semantics (the core behavior)
 
@@ -162,13 +182,17 @@ progress RPC is needed.
 
 ### Parameter value encoding
 
-`params` is a **string→string** map, matching the CLI's `--param k=v` shape. The daemon
-coerces each string to the declared parameter type during resolution (an `int`
+`params` carries each value as a `WorkflowParamValue` (not a bare `string→string`
+map). For a scalar parameter the daemon reads `value`, matching the CLI's `--param k=v`
+shape, and coerces that string to the declared type during resolution (an `int`
 parameter parses `"12"` to 12, a `bool` parses `"true"`), which is the single coercion
-point the engine already owns. The GUI does not pre-coerce; it sends the user's entered
-text (or the `default`'s string form) so there is exactly one place that interprets
-types. A `bool` toggle submits `"true"`/`"false"`; an unset optional `string` submits an
-empty string or is omitted.
+point the engine already owns. For a `string_array` parameter the GUI sends the ordered
+list in the `repeated string values` field instead of `value`; the daemon coerces each
+element and (when a `pattern` is set) checks every one. The GUI does not pre-coerce; it
+sends the user's entered text (or the `default`'s string form) so there is exactly one
+place that interprets types. A `bool` toggle submits `"true"`/`"false"`; an unset
+optional `string` submits an empty string or is omitted; an empty `string_array` submits
+no `values`.
 
 ### Fail-fast
 

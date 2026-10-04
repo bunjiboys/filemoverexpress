@@ -304,7 +304,7 @@ A workflow may declare typed, constrained inputs and reference them with
 spec:
   parameters:
     - name: day
-      type: string          # string | int | float | bool | enum
+      type: string          # string | int | float | bool | enum | string_array
       required: true
     - name: show
       type: string
@@ -341,6 +341,7 @@ Rules:
 | `float` | a decimal number | `min`, `max` (inclusive bounds) | Rendered with its decimal form, no exponent and no trailing-zero padding (`1.5` -> `1.5`). Stays numeric only in a numeric `with` field. |
 | `bool` | `true` or `false` | none | Renders `true` / `false` when interpolated into a string; stays a bool in a bool `with` field (for example `force: ${params.force}`). |
 | `enum` | one of a declared set of strings | `values` (required, non-empty list of the allowed strings) | Substituted as-is; the resolved value must be a member of `values`. |
+| `string_array` | a list of strings | `pattern` (RE2 regex applied to EVERY element; each element must fully match) | A whole-value reference (`sources: ${params.src}`) resolves to the string array itself, so it fills a list `with` field such as `sources` directly. An embedded reference renders the array to its string form. |
 
 Every type also accepts `required` (bool, default false) and `default` (a value of
 the parameter's own type). A parameter that is neither `required` nor given a
@@ -356,12 +357,30 @@ substitute an empty string. A `bool`, `int`, or `float` parameter used in a type
 parameter must be either `required` or given a `default`; a validate-time error is
 raised if it is neither.
 
+A `string_array` parameter resolves to a list of strings. Its `default`, when set,
+is a YAML/JSON array (`default: ["/a", "/b"]`), and a caller supplies its value as a
+list rather than a scalar (over the RPC this is the `WorkflowParamValue.values`
+repeated field; see the runner GUI doc). The `pattern` constraint, when present, is
+applied to EVERY element: each element must fully match or validation fails,
+reporting the offending element. There is no array-length constraint in v1. A
+`string_array` is intended to fill a list `with` position such as a Job or Checksum
+step's `sources`, authored as a whole-value reference (`sources: ${params.src}`) so
+the array substitutes in place; an embedded reference inside a larger string renders
+the array to its string form. The runner GUI's multi-select Browse affordance (see
+`docs/designs/workflows/Workflow-Runner-GUI.md`) is the primary editor for a
+`string_array` of source paths. Only `string_array` is defined in v1; other element
+types (int/float/bool/enum arrays) are deliberately not implemented until a workflow
+needs them.
+
 Not in v1, by design, so a generator author knows these are intentional omissions
 rather than gaps to work around:
 
-- **No list or object parameter types.** `${params.x}` interpolates one scalar
-  into a scalar position; a structured value has no clean textual expansion. A
-  list-valued `with` field such as `sources` is authored literally in the step.
+- **No object parameter types, and only `string_array` among list types.** A
+  structured object value has no clean textual expansion, so there is no object
+  parameter. `string_array` is the one list type defined in v1 (it fills a list
+  `with` position such as `sources` via a whole-value reference); int/float/bool/enum
+  array types are intentionally omitted until a workflow needs them, rather than being
+  gaps to work around.
 - **No `secret` type.** Credentials live in the named `transferProfile`, never in
   a workflow file or its parameters; a `secret` param would defeat the portability
   guarantee.
@@ -687,7 +706,7 @@ Structure: envelope + `spec.steps` array; `$defs` per step type (`JobStep`,
 `ChecksumStep`, `SleepStep`, `InventoryReportStep`); discriminator via `allOf` +
 `if (type == "<T>") then (with matches <T>Step)` for each type; enums and
 constraints for `direction`, checksum `algorithm`, non-empty `sources`, `duration`
-format, parameter `type` (`string` | `int` | `float` | `bool` | `enum`) with the
+format, parameter `type` (`string` | `int` | `float` | `bool` | `enum` | `string_array`) with the
 per-type constraint keys from the Parameters table, required fields, and
 `metadata.labels` as a string-to-string map
 (`"additionalProperties": {"type": "string"}`). Cross-item `id` uniqueness is
@@ -709,3 +728,41 @@ Authors reference the schema for editor validation:
   daemon implementation. Its design is specified separately in
   `docs/designs/workflows/Workflow-Runner-GUI.md` (open an authored workflow, prompt for parameters,
   submit to the daemon).
+
+## `string_array` parameter type - implementation addendum
+
+Status: designed, not yet implemented. `string_array` is the one list parameter type
+in v1 (see the Parameters table). It exists so the runner GUI's multi-select Browse
+can contribute one-or-more source paths to a step's `sources` array at run time,
+matching how the existing drag-drop transfer UI and `JobStep.sources` already treat
+sources as a list. The scalar-only parameter layer was the single place that could not
+represent that; `string_array` closes it.
+
+Scope decisions (deliberately minimal - YAGNI):
+
+- **Only `string_array`.** No `int_array`/`float_array`/`bool_array`/`enum_array`
+  until a workflow needs one. Each would be a discrete flat `ParameterType` constant
+  (e.g. `int_array`), not a parameterized `list[T]`, so adding one later is additive.
+- **Element-wise `pattern`.** The `pattern` constraint, if set, must fully match EVERY
+  element; the validator reports the offending element. No array-length bound in v1.
+- **Wire encoding.** `fme.v1.WorkflowParamValue` gains a `repeated string values`
+  field. A scalar parameter continues to use `value`; a `string_array` populates
+  `values`. This avoids a delimited-string encoding, whose delimiter would be
+  ambiguous against a path.
+
+What the build touches (rough order, test-first at the package's coverage bar):
+
+1. `src/cli/workflow/types.go` - add `ParamStringArray ParameterType = "string_array"`.
+2. `schemas/workflow/v1.json` - add `string_array` to the parameter `type` enum; allow
+   an array `default`; scope `pattern` to it; keep `min`/`max`/`values` disallowed.
+3. `src/cli/workflow/parameters.go` - a `coerce` arm returning `[]string`, element-wise
+   `checkPattern`, and resolution of a caller-supplied list; the existing whole-value
+   substitution already preserves the array into a list `with` position.
+4. `src/protobuf/fme/v1/workflow.proto` - add `repeated string values` to
+   `WorkflowParamValue`; regenerate Go + TS bindings.
+5. GUI - the runner's schema-driven field generator renders a `string_array` as the
+   multi-chip Browse field (see `docs/designs/workflows/Workflow-Runner-GUI.md`); the
+   fme-client param builder sends `values` for an array parameter.
+
+Rough effort: ~2-2.5 days for the daemon/format/proto core, plus the GUI field kind
+folded into the runner's Phase 2.
