@@ -62,12 +62,18 @@ func (m *WorkflowManager) Start(src []byte, format Format, params ParamInputs) (
 		return "", verrs, nil
 	}
 
+	// Resolution succeeded during validation; build the resolved document the engine
+	// actually runs, so spec.defaults and ${params.*} references are applied to each
+	// step's `with` before any executor reads it. The run record keeps the original
+	// (templated) doc for step identity/metadata, which is never resolved.
+	resolved := resolveDocument(doc, params)
+
 	run := NewWorkflowRun(m.nextRunID(), doc)
 	if err := m.store.Save(run); err != nil {
 		return "", nil, fmt.Errorf("workflow: persisting new run: %w", err)
 	}
 
-	m.launch(run, doc)
+	m.launch(run, resolved)
 	return run.RunID, nil, nil
 }
 

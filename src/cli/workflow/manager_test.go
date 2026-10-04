@@ -81,8 +81,61 @@ type instantExec struct{}
 
 func (instantExec) Execute(context.Context, Step) error { return nil }
 
+// capturingExec records the `with` payload each step is handed, so a test can assert the
+// executor receives resolved values (defaults merged, ${params.*} substituted) rather than
+// the raw templated payload.
+type capturingExec struct {
+	mu   sync.Mutex
+	with map[string]map[string]any
+}
+
+func newCapturingExec() *capturingExec { return &capturingExec{with: map[string]map[string]any{}} }
+
+func (c *capturingExec) Execute(_ context.Context, step Step) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.with[step.ID] = step.With
+	return nil
+}
+
+func (c *capturingExec) withFor(id string) map[string]any {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.with[id]
+}
+
 func managerFor(store RunStore) *WorkflowManager {
 	return NewWorkflowManager(store, Registry{StepSleep: instantExec{}, StepJob: instantExec{}}, 4, alwaysProfileOK)
+}
+
+// TestStartResolvesParamsBeforeExecution proves the engine runs RESOLVED steps: a Job step
+// authored with sources: ["/mnt/${params.day}"] and destination "d/${params.day}" must
+// reach the executor with those references substituted (day=15), not as literals. This
+// guards the resolve-once-then-run path in Start.
+func TestStartResolvesParamsBeforeExecution(t *testing.T) {
+	store := newMemStore()
+	cap := newCapturingExec()
+	mgr := NewWorkflowManager(store, Registry{StepSleep: cap, StepJob: cap}, 4, alwaysProfileOK)
+
+	_, verrs, err := mgr.Start([]byte(validRunYAML), FormatYAML, ScalarInputs(map[string]string{"day": "15"}))
+	if err != nil {
+		t.Fatalf("Start err = %v", err)
+	}
+	if len(verrs) != 0 {
+		t.Fatalf("unexpected validation errors: %v", verrs)
+	}
+
+	// The run executes in a background goroutine; wait for step b to be captured.
+	waitFor(t, func() bool { return cap.withFor("b") != nil }, "job step b to execute")
+
+	got := cap.withFor("b")
+	sources, _ := got["sources"].([]any)
+	if len(sources) != 1 || sources[0] != "/mnt/15" {
+		t.Errorf("sources = %#v, want [\"/mnt/15\"] (resolved, not templated)", got["sources"])
+	}
+	if got["destination"] != "d/15" {
+		t.Errorf("destination = %#v, want \"d/15\" (resolved, not templated)", got["destination"])
+	}
 }
 
 func TestWorkflowManagerStartAccepts(t *testing.T) {

@@ -103,6 +103,27 @@ func resolveSteps(doc Document, params ParamInputs) (map[string]map[string]any, 
 	return resolved, errs
 }
 
+// resolveDocument returns a copy of doc whose every step's `with` has been resolved
+// (spec.defaults merged in, ${params.*} substituted) with the given inputs. It is used on
+// the EXECUTION path so the engine's executors read resolved values rather than literal
+// ${params.*} templates. Validation (which runs the same resolution to check path safety
+// and profiles) has already proven the resolution is clean, so any residual substitution
+// errors are dropped here — they were already reported as PARAMETER errors by Validate and
+// would have failed the run before it started. The envelope fields (id/name/type/
+// dependsOn/continueOnError) are never templated and are copied unchanged; the original
+// doc is not mutated (a fresh steps slice is built).
+func resolveDocument(doc Document, params ParamInputs) Document {
+	out := doc
+	out.Spec.Steps = make([]Step, len(doc.Spec.Steps))
+	for i := range doc.Spec.Steps {
+		step := doc.Spec.Steps[i]
+		resolvedWith, _ := ResolveWith(step.With, doc.Spec.Defaults, doc.Spec.Parameters, params)
+		step.With = resolvedWith
+		out.Spec.Steps[i] = step
+	}
+	return out
+}
+
 // pathSafetyErrors checks every string value in each resolved step payload for a traversal
 // segment introduced by substitution (format doc "Path safety"), reporting a SCHEMA error
 // (a shape/safety failure) naming the step.
