@@ -1,7 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatIcon } from '@angular/material/icon';
-import { MatIconButton } from '@angular/material/button';
 import { MatTooltip } from '@angular/material/tooltip';
 import {
     initialFieldValue,
@@ -30,7 +29,6 @@ import { WorkflowParameter } from '@app/classes/workflow/workflow-parameter.mode
     imports: [
         FormsModule,
         MatIcon,
-        MatIconButton,
         MatTooltip,
     ],
 })

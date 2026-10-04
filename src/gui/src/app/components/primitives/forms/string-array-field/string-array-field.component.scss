@@ -58,7 +58,14 @@
     }
 }
 
+.fme-field-row {
+    display: flex;
+    align-items: stretch;
+    gap: 8px;
+}
+
 .fme-chip-box {
+    flex: 1 1 auto;
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -94,15 +101,25 @@
 }
 
 .fme-chip-remove {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     width: 18px;
     height: 18px;
-    line-height: 18px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    cursor: pointer;
 
     mat-icon {
         font-size: 14px;
         width: 14px;
         height: 14px;
         color: custom-fields.$placeholder-text-color;
+    }
+
+    &:hover mat-icon {
+        color: custom-fields.$regular-text-color;
     }
 }
 
@@ -125,15 +142,29 @@
 }
 
 .fme-browse-trigger {
-    width: 24px;
-    height: 24px;
-    line-height: 24px;
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 12px;
+    height: custom-fields.$form-field-height;
+    border: solid 1px custom-fields.$form-field-border-color;
+    border-radius: custom-fields.$form-field-border-radius;
+    background: variables.$background-menu;
+    color: custom-fields.$regular-text-color;
+    font-family: fonts.$font-family;
+    font-size: 12px;
+    cursor: pointer;
 
     mat-icon {
         font-size: 16px;
         width: 16px;
         height: 16px;
         color: variables.$blue-500;
+    }
+
+    &:hover {
+        background: variables.$background-menu-hover;
     }
 }
 
