@@ -210,6 +210,24 @@ func TestEngineStepStatusObserver(t *testing.T) {
 	}
 }
 
+func TestEngineTwoFailuresShareDependent(t *testing.T) {
+	// a and b both fail (no continueOnError) and both are depended on by c. The second
+	// failure finds c already skipped, exercising the already-completed-dependent guard.
+	exec := &fakeExecutor{fail: map[string]error{"a": errors.New("boom-a"), "b": errors.New("boom-b")}}
+	doc := Document{Spec: Spec{Steps: []Step{
+		{ID: "a", Type: StepSleep},
+		{ID: "b", Type: StepSleep},
+		{ID: "c", Type: StepSleep, DependsOn: []string{"a", "b"}},
+	}}}
+	result := newEngine(exec, 4).Run(context.Background(), doc)
+	if result.Status != RunFailed {
+		t.Fatalf("status = %s, want FAILED", result.Status)
+	}
+	if result.Steps["c"] != StepSkipped {
+		t.Errorf("c = %s, want SKIPPED", result.Steps["c"])
+	}
+}
+
 func equalSlice(a, b []string) bool {
 	if len(a) != len(b) {
 		return false
