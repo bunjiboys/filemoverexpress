@@ -70,6 +70,26 @@ func jobStep() Step {
 	}}
 }
 
+func TestJobExecutorStampsWorkflowProvenance(t *testing.T) {
+	exec, h := newJobHarness(t)
+	step := jobStep()
+	go func() {
+		job := <-h.created
+		h.ch <- stampJobID(&eventtypes.JobCompleteEvent{HasSuccessfulTasks: true}, job.JobId())
+	}()
+	// Execute under a run-id context: the config must carry the run id and the step id so
+	// the created job is traceable back to its workflow step.
+	if err := exec.Execute(WithRunID(context.Background(), "wfr-123"), step); err != nil {
+		t.Fatalf("Execute err = %v", err)
+	}
+	if h.cfg.WorkflowRunID != "wfr-123" {
+		t.Errorf("WorkflowRunID = %q, want wfr-123", h.cfg.WorkflowRunID)
+	}
+	if h.cfg.WorkflowStepID != step.ID {
+		t.Errorf("WorkflowStepID = %q, want %q", h.cfg.WorkflowStepID, step.ID)
+	}
+}
+
 // runWithEvent runs the executor and, once the job exists, pushes evt stamped with the
 // job's id to simulate completion. Matching is by runtime job id.
 func runWithEvent(exec *JobExecutor, h *jobHarness, step Step, evt eventtypes.Event) error {

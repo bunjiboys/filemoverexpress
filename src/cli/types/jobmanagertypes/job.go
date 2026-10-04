@@ -45,6 +45,8 @@ type (
 		s3PrefixToTrim        string
 		force                 bool
 		uploadBasePath        string
+		workflowRunID         string
+		workflowStepID        string
 	}
 	JobConfig struct {
 		Direction       transfertypes.Direction
@@ -55,6 +57,12 @@ type (
 		S3PrefixToTrim  string
 		Force           bool
 		UploadBasePath  string
+		// WorkflowRunID / WorkflowStepID carry workflow provenance when this job is
+		// created as a step of a workflow run; both empty for a standalone job. The
+		// daemon's workflow engine populates them (not author-supplied); they let the
+		// workflow lifecycle resolve a step to the job it created.
+		WorkflowRunID  string
+		WorkflowStepID string
 	}
 )
 
@@ -90,6 +98,8 @@ func NewJob(config JobConfig) (*Job, error) {
 		force:                 config.Force,
 		uploadBasePath:        config.UploadBasePath,
 		destination:           config.Destination,
+		workflowRunID:         config.WorkflowRunID,
+		workflowStepID:        config.WorkflowStepID,
 	}, nil
 }
 
@@ -350,6 +360,21 @@ func (j *Job) SetUploadBasePath(uploadBasePath string) {
 	j.uploadBasePath = uploadBasePath
 }
 
+// WorkflowRunID returns the workflow run this job belongs to, or "" for a standalone job.
+func (j *Job) WorkflowRunID() string {
+	j.lock.RLock()
+	defer j.lock.RUnlock()
+	return j.workflowRunID
+}
+
+// WorkflowStepID returns the workflow step id that created this job, or "" for a
+// standalone job.
+func (j *Job) WorkflowStepID() string {
+	j.lock.RLock()
+	defer j.lock.RUnlock()
+	return j.workflowStepID
+}
+
 // endregion
 
 func (j *Job) ToProtobuf() *fmev1.Job {
@@ -376,5 +401,7 @@ func (j *Job) ToProtobuf() *fmev1.Job {
 		Completed:           timestamppb.New(j.TimestampCompleted),
 		Bucket:              j.transferProfile.Bucket,
 		Force:               j.force,
+		WorkflowRunId:       j.workflowRunID,
+		WorkflowStepId:      j.workflowStepID,
 	}
 }

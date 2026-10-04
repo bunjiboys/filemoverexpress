@@ -46,6 +46,13 @@ func workflowManager() (*workflow.WorkflowManager, error) {
 			maxActive,
 			transferProfileExists,
 		)
+		// Wire the Option B job-lifecycle cascade: each run gets an adapter that learns its
+		// steps' jobs from JobCreateEvent (tagged with the run id) and resolves a cancel/
+		// pause/resume to the existing job RPC handlers.
+		server := &FileMoverServer{}
+		workflowMgr.JobLifecycleFactory = func(runID string) (workflow.JobLifecycle, func()) {
+			return newWorkflowJobLifecycle(server, runID)
+		}
 	})
 	return workflowMgr, workflowMgrErr
 }

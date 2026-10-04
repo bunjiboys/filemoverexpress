@@ -73,7 +73,7 @@ func dispatchJob(direction transfertypes.Direction, job *jobmanagertypes.Job) {
 // (mapping a JobErrorEvent or a JobCompleteEvent with task errors to a step error) or the
 // context is cancelled.
 func (j *JobExecutor) Execute(ctx context.Context, step Step) error {
-	cfg, err := j.buildConfig(step)
+	cfg, err := j.buildConfig(ctx, step)
 	if err != nil {
 		return err
 	}
@@ -95,8 +95,10 @@ func (j *JobExecutor) Execute(ctx context.Context, step Step) error {
 
 // buildConfig maps the step's `with` to a JobConfig, resolving the named transfer profile
 // and parsing the direction. The profile is referenced by name only (format doc
-// "Portability").
-func (j *JobExecutor) buildConfig(step Step) (jobmanagertypes.JobConfig, error) {
+// "Portability"). It also stamps workflow provenance (the run id from ctx + the step id)
+// onto the config so the created job carries it, which the lifecycle adapter uses to
+// resolve a step to its runtime job.
+func (j *JobExecutor) buildConfig(ctx context.Context, step Step) (jobmanagertypes.JobConfig, error) {
 	direction, err := parseDirection(withString(step.With, "direction"))
 	if err != nil {
 		return jobmanagertypes.JobConfig{}, fmt.Errorf("workflow: job step %s: %w", step.ID, err)
@@ -114,6 +116,8 @@ func (j *JobExecutor) buildConfig(step Step) (jobmanagertypes.JobConfig, error) 
 		S3PrefixToTrim:  withString(step.With, "s3PrefixToTrim"),
 		Force:           withBool(step.With, "force", false),
 		UploadBasePath:  withString(step.With, "uploadBasePath"),
+		WorkflowRunID:   runIDFrom(ctx),
+		WorkflowStepID:  step.ID,
 	}, nil
 }
 

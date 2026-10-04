@@ -21,10 +21,17 @@ type (
 		registry      Registry
 		maxActive     int
 		profileExists func(string) bool
+		// JobLifecycleFactory, when set, builds the per-run JobLifecycle the engine
+		// cascades cancel/pause/resume to, plus a cleanup to release it when the run ends.
+		// Nil disables the job cascade (run-level lifecycle still works). It is a field,
+		// not a constructor argument, so the engine package stays free of the job manager:
+		// the service layer sets it to the JobCreateEvent-subscribing adapter.
+		JobLifecycleFactory func(runID string) (JobLifecycle, func())
 
-		mu      sync.Mutex
-		engines map[string]*Engine // active runs, by run id, for lifecycle operations
-		seq     uint64
+		mu       sync.Mutex
+		engines  map[string]*Engine // active runs, by run id, for lifecycle operations
+		cleanups map[string]func()  // per-run JobLifecycle teardown, by run id
+		seq      uint64
 	}
 )
 
@@ -37,6 +44,7 @@ func NewWorkflowManager(store RunStore, registry Registry, maxActive int, profil
 		maxActive:     maxActive,
 		profileExists: profileExists,
 		engines:       make(map[string]*Engine),
+		cleanups:      make(map[string]func()),
 	}
 }
 
@@ -68,19 +76,87 @@ func (m *WorkflowManager) Get(runID string) (*WorkflowRun, error) {
 	return m.store.Load(runID)
 }
 
+// List returns every persisted run record, newest state included, for the ListWorkflowRuns
+// surface.
+func (m *WorkflowManager) List() ([]*WorkflowRun, error) {
+	return m.store.List()
+}
+
+// Cancel cancels an active run: it stops scheduling, skips not-yet-started steps, and
+// cascades to in-flight jobs. It errors when the run id is unknown or already terminal
+// (no active engine is tracked for it), so a handler can report that rather than silently
+// succeeding on a finished run.
+func (m *WorkflowManager) Cancel(runID string) error {
+	engine, err := m.activeEngine(runID)
+	if err != nil {
+		return err
+	}
+	engine.CancelRun()
+	return nil
+}
+
+// Pause gates an active run's scheduler so no new steps start; pauseInFlightJobs also
+// pauses each in-flight Job step's job. It errors when the run is unknown or already
+// terminal.
+func (m *WorkflowManager) Pause(runID string, pauseInFlightJobs bool) error {
+	engine, err := m.activeEngine(runID)
+	if err != nil {
+		return err
+	}
+	engine.PauseRun(pauseInFlightJobs)
+	return nil
+}
+
+// Resume un-gates a paused active run and resumes any jobs paused by a pauseInFlightJobs
+// pause. It errors when the run is unknown or already terminal.
+func (m *WorkflowManager) Resume(runID string) error {
+	engine, err := m.activeEngine(runID)
+	if err != nil {
+		return err
+	}
+	engine.ResumeRun()
+	return nil
+}
+
+// activeEngine returns the engine driving an in-flight run, or an error when no run is
+// active for the id. A run that already finished has been removed from the engines map by
+// finish, so a lifecycle op on it is reported as a no-longer-active error (idempotent-once-
+// terminal per the format doc), distinct from an unknown id, which the store can confirm.
+func (m *WorkflowManager) activeEngine(runID string) (*Engine, error) {
+	m.mu.Lock()
+	engine, ok := m.engines[runID]
+	m.mu.Unlock()
+	if ok {
+		return engine, nil
+	}
+	if _, err := m.store.Load(runID); err != nil {
+		return nil, fmt.Errorf("workflow: run %s not found", runID)
+	}
+	return nil, fmt.Errorf("workflow: run %s is no longer active", runID)
+}
+
 // launch builds an engine for the run, wires transition-only persistence and run tracking,
-// and executes the document in a background goroutine.
+// the per-run job-lifecycle cascade (when a factory is set), and executes the document in a
+// background goroutine.
 func (m *WorkflowManager) launch(run *WorkflowRun, doc Document) {
 	engine := NewEngine(m.registry, m.maxActive)
 	engine.OnStepStatus = m.onStepStatus(run.RunID)
 	engine.OnRunStatus = m.onRunStatus(run.RunID)
 
+	var cleanup func()
+	if m.JobLifecycleFactory != nil {
+		engine.Jobs, cleanup = m.JobLifecycleFactory(run.RunID)
+	}
+
 	m.mu.Lock()
 	m.engines[run.RunID] = engine
+	if cleanup != nil {
+		m.cleanups[run.RunID] = cleanup
+	}
 	m.mu.Unlock()
 
 	go func() {
-		engine.Run(context.Background(), doc)
+		engine.Run(WithRunID(context.Background(), run.RunID), doc)
 		m.finish(run.RunID)
 	}()
 }
@@ -118,11 +194,17 @@ func (m *WorkflowManager) onRunStatus(runID string) func(RunStatus) {
 	}
 }
 
-// finish removes the run from the active-engines map once execution ends.
+// finish removes the run from the active-engines map and tears down its job-lifecycle
+// adapter (unsubscribing it from the event bus) once execution ends.
 func (m *WorkflowManager) finish(runID string) {
 	m.mu.Lock()
 	delete(m.engines, runID)
+	cleanup := m.cleanups[runID]
+	delete(m.cleanups, runID)
 	m.mu.Unlock()
+	if cleanup != nil {
+		cleanup()
+	}
 }
 
 // persist writes a run record, logging (not failing) a store error, since a transition

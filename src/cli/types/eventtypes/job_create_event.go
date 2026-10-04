@@ -20,6 +20,11 @@ type JobCreateEvent struct {
 	Direction           transfertypes.Direction
 	Status              string
 	Force               bool
+	// WorkflowRunID / WorkflowStepID carry workflow provenance, mirroring the Job fields,
+	// so a consumer (notably the workflow lifecycle adapter) learns a job's originating
+	// run and step as the job is created. Both empty for a standalone job.
+	WorkflowRunID  string
+	WorkflowStepID string
 }
 
 func (jce *JobCreateEvent) String() string {
@@ -51,6 +56,8 @@ func (jce *JobCreateEvent) ToProtobuf() (fmev1.PbEvent, fmev1.EventType) {
 		Direction:       direction,
 		Status:          jce.Status,
 		Force:           jce.Force,
+		WorkflowRunId:   jce.WorkflowRunID,
+		WorkflowStepId:  jce.WorkflowStepID,
 	}
 	msgEvent := fmev1.ListEventsResponse_JobCreateEvent{JobCreateEvent: pbEvent}
 	return &msgEvent, fmev1.EventType_EVENT_TYPE_JOB_CREATE_EVENT_TYPE

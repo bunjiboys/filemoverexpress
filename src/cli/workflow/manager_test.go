@@ -7,6 +7,18 @@ import (
 	"time"
 )
 
+// singleGatedYAML is a one-step workflow (no parameters) whose step id is "sleep-step", so
+// a gatingExecutor keyed on that id holds the run in flight for lifecycle tests.
+const singleGatedYAML = `
+apiVersion: fme.dev/workflow/v1
+kind: Workflow
+spec:
+  steps:
+    - id: sleep-step
+      type: Sleep
+      with: {duration: 1s}
+`
+
 // memStore is an in-memory RunStore for manager tests (no bbolt).
 type memStore struct {
 	mu   sync.Mutex
@@ -229,6 +241,109 @@ func (s *saveFailAfterFirst) Load(id string) (*WorkflowRun, error) { return s.in
 func (s *saveFailAfterFirst) List() ([]*WorkflowRun, error)        { return s.inner.List() }
 func (s *saveFailAfterFirst) Delete(id string) error               { return s.inner.Delete(id) }
 
+// managerWithExec builds a manager whose Sleep and Job steps both run the given executor,
+// so a gatingExecutor can hold a run in flight for lifecycle tests.
+func managerWithExec(store RunStore, exec StepExecutor) *WorkflowManager {
+	return NewWorkflowManager(store, Registry{StepSleep: exec, StepJob: exec}, 4, alwaysProfileOK)
+}
+
+func TestWorkflowManagerListReturnsPersistedRuns(t *testing.T) {
+	store := newMemStore()
+	mgr := managerFor(store)
+	id1, _, _ := mgr.Start([]byte(validRunYAML), FormatYAML, map[string]string{"day": "15"})
+	id2, _, _ := mgr.Start([]byte(validRunYAML), FormatYAML, map[string]string{"day": "15"})
+	waitFor(t, func() bool {
+		runs, err := mgr.List()
+		return err == nil && len(runs) == 2
+	}, "both runs listed")
+	runs, _ := mgr.List()
+	ids := map[string]bool{}
+	for _, r := range runs {
+		ids[r.RunID] = true
+	}
+	if !ids[id1] || !ids[id2] {
+		t.Fatalf("List missing a run: ids=%v want %s,%s", ids, id1, id2)
+	}
+}
+
+func TestWorkflowManagerCancelActiveRun(t *testing.T) {
+	store := newMemStore()
+	exec := newGatingExecutor("sleep-step")
+	mgr := managerWithExec(store, exec)
+	runID, _, err := mgr.Start([]byte(singleGatedYAML), FormatYAML, nil)
+	if err != nil || runID == "" {
+		t.Fatalf("Start: id=%q err=%v", runID, err)
+	}
+	// Wait until the step is in flight (the engine is tracked and active).
+	waitFor(t, func() bool { return exec.didStart("sleep-step") }, "step started")
+
+	if cancelErr := mgr.Cancel(runID); cancelErr != nil {
+		t.Fatalf("Cancel active run: %v", cancelErr)
+	}
+	// Cancel does not force-kill an in-flight non-Job step; it finishes normally. Release
+	// it so the scheduler drains and the run settles on its CANCELLED verdict.
+	close(exec.release["sleep-step"])
+	waitFor(t, func() bool {
+		r, loadErr := store.Load(runID)
+		return loadErr == nil && r.Status == RunCancelled
+	}, "run reaches CANCELLED")
+}
+
+func TestWorkflowManagerPauseResumeActiveRun(t *testing.T) {
+	store := newMemStore()
+	exec := newGatingExecutor("sleep-step")
+	mgr := managerWithExec(store, exec)
+	runID, _, err := mgr.Start([]byte(singleGatedYAML), FormatYAML, nil)
+	if err != nil || runID == "" {
+		t.Fatalf("Start: id=%q err=%v", runID, err)
+	}
+	waitFor(t, func() bool { return exec.didStart("sleep-step") }, "step started")
+
+	if pauseErr := mgr.Pause(runID, false); pauseErr != nil {
+		t.Fatalf("Pause active run: %v", pauseErr)
+	}
+	if resumeErr := mgr.Resume(runID); resumeErr != nil {
+		t.Fatalf("Resume active run: %v", resumeErr)
+	}
+	// Release the step so the run can finish cleanly after resume.
+	close(exec.release["sleep-step"])
+	waitFor(t, func() bool {
+		r, loadErr := store.Load(runID)
+		return loadErr == nil && r.Status == RunSucceeded
+	}, "run succeeds after resume")
+}
+
+func TestWorkflowManagerLifecycleUnknownRun(t *testing.T) {
+	mgr := managerFor(newMemStore())
+	if err := mgr.Cancel("ghost"); err == nil {
+		t.Error("Cancel of unknown run should error")
+	}
+	if err := mgr.Pause("ghost", true); err == nil {
+		t.Error("Pause of unknown run should error")
+	}
+	if err := mgr.Resume("ghost"); err == nil {
+		t.Error("Resume of unknown run should error")
+	}
+}
+
+func TestWorkflowManagerLifecycleTerminalRun(t *testing.T) {
+	store := newMemStore()
+	mgr := managerFor(store)
+	runID, _, err := mgr.Start([]byte(validRunYAML), FormatYAML, map[string]string{"day": "15"})
+	if err != nil || runID == "" {
+		t.Fatalf("Start: id=%q err=%v", runID, err)
+	}
+	// Let it finish; the engine is then removed from the active map.
+	waitFor(t, func() bool {
+		r, loadErr := store.Load(runID)
+		return loadErr == nil && r.Status.Terminal()
+	}, "run terminal")
+	// A lifecycle op on a finished (but known) run errors as no-longer-active, not unknown.
+	if cancelErr := mgr.Cancel(runID); cancelErr == nil {
+		t.Error("Cancel of a terminal run should error (no active engine)")
+	}
+}
+
 func TestWorkflowManagerGeneratesUniqueRunIDs(t *testing.T) {
 	mgr := managerFor(newMemStore())
 	seen := map[string]bool{}
@@ -242,4 +357,31 @@ func TestWorkflowManagerGeneratesUniqueRunIDs(t *testing.T) {
 		}
 		seen[id] = true
 	}
+}
+
+func TestWorkflowManagerJobLifecycleFactoryWiredAndCleaned(t *testing.T) {
+	store := newMemStore()
+	mgr := managerFor(store)
+	var (
+		mu           sync.Mutex
+		factoryRunID string
+		cleaned      bool
+	)
+	mgr.JobLifecycleFactory = func(runID string) (JobLifecycle, func()) {
+		mu.Lock()
+		factoryRunID = runID
+		mu.Unlock()
+		return &fakeLifecycle{}, func() { mu.Lock(); cleaned = true; mu.Unlock() }
+	}
+	runID, _, err := mgr.Start([]byte(validRunYAML), FormatYAML, map[string]string{"day": "15"})
+	if err != nil || runID == "" {
+		t.Fatalf("Start: id=%q err=%v", runID, err)
+	}
+	// The factory was invoked with this run's id, and once the run finishes its cleanup
+	// (bus unsubscribe) runs.
+	waitFor(t, func() bool {
+		mu.Lock()
+		defer mu.Unlock()
+		return factoryRunID == runID && cleaned
+	}, "factory wired for run and cleaned up on finish")
 }

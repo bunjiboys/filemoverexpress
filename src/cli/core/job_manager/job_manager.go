@@ -203,6 +203,8 @@ func (jm *JobManager) AddJob(job *jobmanagertypes.Job) error {
 		Status:              string(job.Status()),
 		Created:             job.TimestampCreated,
 		Force:               job.Force(),
+		WorkflowRunID:       job.WorkflowRunID(),
+		WorkflowStepID:      job.WorkflowStepID(),
 	}
 	events.Events.Send(createEvt)
 	return nil
