@@ -77,7 +77,7 @@ func (e *Engine) Run(ctx context.Context, doc Document) RunResult {
 	}
 
 	e.schedule(ctx, steps, status)
-	return RunResult{Status: deriveRunStatus(steps, status), Steps: status}
+	return RunResult{Status: DeriveRunStatus(steps, status), Steps: status}
 }
 
 // initStatuses marks every step PENDING in a fresh status map.
@@ -166,19 +166,6 @@ func (e *Engine) setStatus(status map[string]StepStatus, id string, s StepStatus
 	if e.OnStepStatus != nil {
 		e.OnStepStatus(id, s)
 	}
-}
-
-// deriveRunStatus derives the run's terminal status from its step statuses (format doc
-// "Run and step status model"): FAILED if any step FAILED without continueOnError,
-// otherwise SUCCEEDED. A step left PENDING cannot happen after schedule returns, but is
-// treated as not-failed so the function is total.
-func deriveRunStatus(steps []Step, status map[string]StepStatus) RunStatus {
-	for i := range steps {
-		if status[steps[i].ID] == StepFailed && !steps[i].ContinueOnError {
-			return RunFailed
-		}
-	}
-	return RunSucceeded
 }
 
 // stepByID returns the step with the given id. The id always exists (it came from the
