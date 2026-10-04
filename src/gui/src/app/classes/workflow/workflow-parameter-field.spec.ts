@@ -158,8 +158,127 @@ describe('scalar field model', () => {
     });
 
     describe('validateField', () => {
-        it('returns null for a scalar (scalar validation is a later slice)', () => {
-            expect(validateField(scalarParam({required: true}), '')).toBeNull();
+        describe('required-empty', () => {
+            it('rejects an empty required string', () => {
+                expect(validateField(scalarParam({required: true}), '')).toBe('bucket is required');
+            });
+
+            it('accepts an empty optional string', () => {
+                expect(validateField(scalarParam({required: false}), '')).toBeNull();
+            });
+
+            it('treats a bool with no default as effectively required', () => {
+                expect(validateField(scalarParam({type: 'bool'}), '')).toBe('bucket is required');
+            });
+
+            it('treats an int with no default as effectively required', () => {
+                expect(validateField(scalarParam({type: 'int'}), '')).toBe('bucket is required');
+            });
+        });
+
+        describe('string pattern', () => {
+            it('rejects a value that does not fully match the pattern', () => {
+                expect(validateField(scalarParam({pattern: '^[a-z]+$'}), 'Mixed')).toBe(
+                    'bucket does not match pattern ^[a-z]+$',
+                );
+            });
+
+            it('requires a full match, not a partial one', () => {
+                expect(validateField(scalarParam({pattern: 'abc'}), 'abcd')).toBe(
+                    'bucket does not match pattern abc',
+                );
+            });
+
+            it('accepts a value that fully matches', () => {
+                expect(validateField(scalarParam({pattern: '^[a-z]+$'}), 'bucket')).toBeNull();
+            });
+
+            it('does not pattern-check an empty optional string', () => {
+                expect(validateField(scalarParam({pattern: '^[a-z]+$', required: false}), '')).toBeNull();
+            });
+        });
+
+        describe('int', () => {
+            it('rejects a non-integer', () => {
+                expect(validateField(scalarParam({type: 'int', default: 0}), '1.5')).toBe(
+                    'bucket must be an integer',
+                );
+            });
+
+            it('rejects non-numeric text', () => {
+                expect(validateField(scalarParam({type: 'int', default: 0}), 'abc')).toBe(
+                    'bucket must be an integer',
+                );
+            });
+
+            it('enforces the inclusive min bound', () => {
+                expect(validateField(scalarParam({type: 'int', min: 1, default: 1}), '0')).toBe(
+                    'bucket must be >= 1',
+                );
+                expect(validateField(scalarParam({type: 'int', min: 1, default: 1}), '1')).toBeNull();
+            });
+
+            it('enforces the inclusive max bound', () => {
+                expect(validateField(scalarParam({type: 'int', max: 10, default: 0}), '11')).toBe(
+                    'bucket must be <= 10',
+                );
+                expect(validateField(scalarParam({type: 'int', max: 10, default: 0}), '10')).toBeNull();
+            });
+
+            it('accepts a valid integer with no bounds', () => {
+                expect(validateField(scalarParam({type: 'int', default: 0}), '42')).toBeNull();
+            });
+        });
+
+        describe('float', () => {
+            it('rejects non-numeric text', () => {
+                expect(validateField(scalarParam({type: 'float', default: 0}), 'abc')).toBe(
+                    'bucket must be a number',
+                );
+            });
+
+            it('accepts a decimal', () => {
+                expect(validateField(scalarParam({type: 'float', default: 0}), '1.5')).toBeNull();
+            });
+
+            it('enforces inclusive min/max', () => {
+                expect(validateField(scalarParam({type: 'float', min: 0, max: 1, default: 0}), '1.5')).toBe(
+                    'bucket must be <= 1',
+                );
+                expect(validateField(scalarParam({type: 'float', min: 0, max: 1, default: 0}), '-0.1')).toBe(
+                    'bucket must be >= 0',
+                );
+                expect(validateField(scalarParam({type: 'float', min: 0, max: 1, default: 0}), '0.5')).toBeNull();
+            });
+        });
+
+        describe('bool', () => {
+            it('accepts true/false', () => {
+                expect(validateField(scalarParam({type: 'bool', default: false}), 'true')).toBeNull();
+                expect(validateField(scalarParam({type: 'bool', default: false}), 'false')).toBeNull();
+            });
+
+            it('rejects a non-boolean string', () => {
+                expect(validateField(scalarParam({type: 'bool', default: false}), 'yes')).toBe(
+                    'bucket must be true or false',
+                );
+            });
+        });
+
+        describe('enum', () => {
+            it('rejects a value outside the allowed set', () => {
+                expect(validateField(scalarParam({type: 'enum', values: ['a', 'b'], required: true}), 'c')).toBe(
+                    'bucket must be one of: a, b',
+                );
+            });
+
+            it('accepts a value in the allowed set', () => {
+                expect(validateField(scalarParam({type: 'enum', values: ['a', 'b'], required: true}), 'b')).toBeNull();
+            });
+
+            it('accepts an empty optional enum', () => {
+                expect(validateField(scalarParam({type: 'enum', values: ['a'], required: false}), '')).toBeNull();
+            });
         });
     });
 

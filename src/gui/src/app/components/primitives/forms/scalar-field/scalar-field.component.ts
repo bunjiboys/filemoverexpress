@@ -1,0 +1,86 @@
+import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
+import { FormsModule } from '@angular/forms';
+import { MatIcon } from '@angular/material/icon';
+import {
+    initialFieldValue,
+    isFieldOverridden,
+    validateField,
+} from '@app/classes/workflow/workflow-parameter-field';
+import {
+    isEffectivelyRequired,
+    WorkflowParameter,
+} from '@app/classes/workflow/workflow-parameter.model';
+
+/**
+ * The editor for a scalar workflow parameter (string / int / float / bool / enum),
+ * per the runner-GUI doc field-composition table. One component drives all five
+ * scalar controls, dispatching on the parameter type:
+ *
+ * - string -> text input (pattern full-match)
+ * - int    -> number input, step 1 (integer, inclusive min/max)
+ * - float  -> number input, step any (number, inclusive min/max)
+ * - bool   -> checkbox toggle (submits "true"/"false")
+ * - enum   -> native select over `values`
+ *
+ * The field surfaces client pre-flight validation and an override badge with revert,
+ * all derived from the shared field model. The value is held by the host and updated
+ * through `valueChange`; the GUI never coerces -- it submits the user's text and the
+ * daemon owns coercion.
+ */
+@Component({
+    selector: 'fme-scalar-field',
+    templateUrl: './scalar-field.component.html',
+    styleUrls: ['./scalar-field.component.scss'],
+    changeDetection: ChangeDetectionStrategy.Eager,
+    imports: [
+        FormsModule, MatIcon,
+    ],
+})
+export class ScalarFieldComponent {
+    /** The parameter being edited (type, required, default, constraints). */
+    parameter = input.required<WorkflowParameter>();
+    /** The current value as a string (uncoerced). Host-owned; updated via valueChange. */
+    value = input.required<string>();
+
+    /** Emits the new value string whenever the control changes or is reverted. */
+    valueChange = output<string>();
+
+    /** Client pre-flight validation message for the current value, or null when valid. */
+    protected readonly error = computed<string | null>(() =>
+        validateField(this.parameter(), this.value()),
+    );
+
+    /** Whether the current value differs from the file's declared default. */
+    protected readonly overridden = computed<boolean>(() =>
+        isFieldOverridden(this.parameter(), this.value()),
+    );
+
+    /** Whether the field must be supplied (drives the required marker). */
+    protected readonly required = computed<boolean>(() => isEffectivelyRequired(this.parameter()));
+
+    /** The step attribute for a numeric input: integer for int, any for float. */
+    protected readonly numberStep = computed<string>(() => (this.parameter().type === 'int' ? '1' : 'any'));
+
+    /** The allowed enum values (empty for a non-enum). */
+    protected readonly enumValues = computed<string[]>(() => this.parameter().values ?? []);
+
+    /** The current bool value as a checkbox state. */
+    checked(): boolean {
+        return this.value() === 'true';
+    }
+
+    /** Emit a text/number value from a text or number input. */
+    onText(next: string): void {
+        this.valueChange.emit(next);
+    }
+
+    /** Emit the canonical "true"/"false" string from a checkbox toggle. */
+    onToggle(checked: boolean): void {
+        this.valueChange.emit(checked ? 'true' : 'false');
+    }
+
+    /** Revert the field to the file's declared default (or empty when none). */
+    revert(): void {
+        this.valueChange.emit(initialFieldValue(this.parameter()) as string);
+    }
+}

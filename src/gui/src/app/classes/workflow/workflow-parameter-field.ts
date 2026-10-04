@@ -1,5 +1,6 @@
 import {
     isArrayParameter,
+    isEffectivelyRequired,
     WorkflowParameter,
 } from '@app/classes/workflow/workflow-parameter.model';
 
@@ -79,6 +80,74 @@ function validateArrayField(param: WorkflowParameter, values: string[]): string 
 }
 
 /**
+ * Client-side pre-flight validation for a scalar field (string/int/float/bool/enum).
+ * Returns an error message or null when valid. Mirrors the schema constraints for
+ * immediate feedback; the daemon is authoritative. The GUI does not coerce -- it
+ * validates the user's entered text against the declared type and constraints.
+ */
+function validateScalarField(param: WorkflowParameter, value: string): string | null {
+    if (value === '') {
+        return isEffectivelyRequired(param) ? `${param.name} is required` : null;
+    }
+
+    switch (param.type) {
+        case 'string':
+            return validateStringPattern(param, value);
+        case 'int':
+            return validateIntField(param, value);
+        case 'float':
+            return validateFloatField(param, value);
+        case 'bool':
+            return value === 'true' || value === 'false' ? null : `${param.name} must be true or false`;
+        case 'enum':
+            return (param.values ?? []).includes(value)
+                ? null
+                : `${param.name} must be one of: ${(param.values ?? []).join(', ')}`;
+        /* c8 ignore next 3 -- justified-unreachable: string_array is routed to the array
+           path before this switch, and every other WorkflowParameterType has a case; the
+           default is a defense for a future scalar type added without a case here. */
+        default:
+            return null;
+    }
+}
+
+/** Full-match a string parameter against its declared pattern, if any. */
+function validateStringPattern(param: WorkflowParameter, value: string): string | null {
+    if (param.pattern !== undefined && !matchesPattern(param.pattern, value)) {
+        return `${param.name} does not match pattern ${param.pattern}`;
+    }
+    return null;
+}
+
+/** Validate an int field: integer parse plus inclusive min/max bounds. */
+function validateIntField(param: WorkflowParameter, value: string): string | null {
+    if (!/^[+-]?\d+$/.test(value)) {
+        return `${param.name} must be an integer`;
+    }
+    return checkNumericBounds(param, Number(value));
+}
+
+/** Validate a float field: numeric parse plus inclusive min/max bounds. */
+function validateFloatField(param: WorkflowParameter, value: string): string | null {
+    const num = Number(value);
+    if (value.trim() === '' || Number.isNaN(num)) {
+        return `${param.name} must be a number`;
+    }
+    return checkNumericBounds(param, num);
+}
+
+/** Apply inclusive min/max bounds to a parsed number. */
+function checkNumericBounds(param: WorkflowParameter, num: number): string | null {
+    if (param.min !== undefined && num < param.min) {
+        return `${param.name} must be >= ${param.min}`;
+    }
+    if (param.max !== undefined && num > param.max) {
+        return `${param.name} must be <= ${param.max}`;
+    }
+    return null;
+}
+
+/**
  * Client-side pre-flight validation for one field. Dispatches on the parameter type.
  * Returns an error message or null when valid.
  */
@@ -87,9 +156,7 @@ export function validateField(param: WorkflowParameter, value: WorkflowFieldValu
         return validateArrayField(param, Array.isArray(value) ? value : []);
     }
 
-    // Scalar field validation is handled in a later Phase 2 slice; the array field
-    // is the lead per the implementation order.
-    return null;
+    return validateScalarField(param, typeof value === 'string' ? value : '');
 }
 
 /**
