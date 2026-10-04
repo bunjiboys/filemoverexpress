@@ -538,4 +538,6 @@ Authors reference the schema for editor validation:
 - Whether `fme workflow list` surfaces historical runs or only in-flight ones,
   consistent with how `ListJobs` behaves today.
 - GUI affordance (import/run a workflow file) is out of scope for the first CLI +
-  daemon implementation.
+  daemon implementation. Its design is specified separately in
+  `docs/Workflow-Runner-GUI.md` (open an authored workflow, prompt for parameters,
+  submit to the daemon).
