@@ -1,0 +1,47 @@
+<div class="fme-string-array-field">
+    <div class="fme-field-header">
+        <span class="fme-field-label">
+            {{ parameter().name }}
+            @if (required()) {
+                <span class="fme-required-marker" aria-label="required">*</span>
+            }
+            <span class="fme-field-type">{{ parameter().type }}</span>
+        </span>
+
+        @if (overridden()) {
+            <span class="fme-override-badge">
+                overridden
+                <button type="button" class="fme-revert" (click)="revert()">revert</button>
+            </span>
+        }
+    </div>
+
+    <div class="fme-chip-box" [class.fme-invalid]="error() !== null">
+        @for (value of values(); track value; let i = $index) {
+            <span class="fme-chip" [title]="value">
+                <span class="fme-chip-label">{{ leafName(value) }}</span>
+                <button type="button" mat-icon-button class="fme-chip-remove"
+                        [attr.aria-label]="'Remove ' + value" matTooltip="Remove"
+                        (click)="removeAt(i)">
+                    <mat-icon>close</mat-icon>
+                </button>
+            </span>
+        }
+
+        <input class="fme-chip-entry" type="text"
+               [attr.aria-label]="'Add a path for ' + parameter().name"
+               placeholder="Type a path and press Enter"
+               [(ngModel)]="entry"
+               (keydown.enter)="addEntry()" />
+
+        <button type="button" mat-icon-button class="fme-browse-trigger"
+                aria-label="Browse for sources" matTooltip="Browse…"
+                (click)="browse()">
+            <mat-icon>folder_open</mat-icon>
+        </button>
+    </div>
+
+    @if (error() !== null) {
+        <p class="fme-field-error">{{ error() }}</p>
+    }
+</div>
