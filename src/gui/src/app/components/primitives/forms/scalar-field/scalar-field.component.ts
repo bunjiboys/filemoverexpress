@@ -1,6 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { MatIcon } from '@angular/material/icon';
 import {
     initialFieldValue,
     isFieldOverridden,
@@ -33,7 +32,7 @@ import {
     styleUrls: ['./scalar-field.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
     imports: [
-        FormsModule, MatIcon,
+        FormsModule,
     ],
 })
 export class ScalarFieldComponent {
