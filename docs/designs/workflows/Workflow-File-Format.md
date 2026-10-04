@@ -478,6 +478,164 @@ engine marks that step's **transitive dependents** as skipped and continues
 executing any steps that do not depend on the failed step. The run's final status
 is failed if any step failed without `continueOnError`.
 
+## Run lifecycle, state management, and persistence
+
+A submitted workflow becomes a **`WorkflowRun`**: the live, stateful object the daemon
+owns from acceptance to a terminal state. Everything in this section is about that
+run-level state — distinct from the per-job state the job manager already tracks. A run
+*owns* the jobs its `Job` steps create (linked by `workflow_run_id`); run state is a
+layer **above** job state, not a replacement for it.
+
+### Run and step status model
+
+A run and each of its steps carry a status. Step status is the finer-grained truth; run
+status is derived from the steps.
+
+**Step status:**
+
+| Status | Meaning |
+|--------|---------|
+| `PENDING` | Declared, not yet eligible (a `dependsOn` is unmet). |
+| `RUNNING` | Eligible and executing (its executor is active). |
+| `SUCCEEDED` | Completed without error. |
+| `FAILED` | The executor returned an error. |
+| `SKIPPED` | A transitive dependency failed (decision 3), or the run was cancelled before this step started. |
+
+**Run status:**
+
+| Status | Meaning | Derived from |
+|--------|---------|--------------|
+| `PENDING` | Accepted, validated, not yet started scheduling. | initial |
+| `RUNNING` | At least one step is RUNNING or still PENDING-and-reachable. | steps |
+| `PAUSED` | The user paused the run; the scheduler is gated (see below). | explicit |
+| `SUCCEEDED` | Every step reached SUCCEEDED (or SKIPPED under `continueOnError`). | steps |
+| `FAILED` | At least one step FAILED without `continueOnError`; the run finished with dependents skipped. | steps |
+| `CANCELLED` | The user cancelled the run before it reached a terminal state. | explicit |
+
+`SUCCEEDED`, `FAILED`, and `CANCELLED` are **terminal**. A run status is recomputed from
+its step statuses on every step transition; `PAUSED` and `CANCELLED` are the two the user
+sets directly, everything else is derived.
+
+### Lifecycle operations
+
+Three user operations act on a whole run and **cascade** to its jobs. All resolve the run
+by its run id and are no-ops (idempotent) once the run is terminal.
+
+- **Cancel** (`CancelWorkflowRun`): mark the run `CANCELLED`. The scheduler stops
+  launching new steps; every not-yet-started step becomes `SKIPPED`; every in-flight
+  `Job` step's job is cancelled via the existing `CancelJob` path. In-flight non-job
+  steps (`Sleep`, `Checksum`, `InventoryReport`) are interrupted via their executor's
+  `context` cancellation.
+- **Pause** (`PauseWorkflowRun`): mark the run `PAUSED` and **gate the scheduler** so no
+  new steps start. Whether in-flight work is also paused is a **user choice** (settled
+  decision): the request carries a `pause_in_flight_jobs` flag.
+  - `pause_in_flight_jobs = false` (default): only the scheduler is gated. Steps already
+    running finish normally; nothing new starts. Lowest-risk, matches "stop starting more".
+  - `pause_in_flight_jobs = true`: additionally pause each in-flight `Job` step's job via
+    the existing `PauseJob` path, so running transfers suspend too. Matches the intuitive
+    "pause everything" button. Non-job in-flight steps (`Sleep`/`Checksum`/`InventoryReport`)
+    have no pause primitive; they run to completion either way, and this is documented so
+    the user is not surprised that a sleeping step keeps sleeping.
+- **Resume** (`ResumeWorkflowRun`): from `PAUSED`, un-gate the scheduler (eligible steps
+  start again) and resume any jobs that were paused by a `pause_in_flight_jobs` pause (via
+  `ResumeJob`). The run returns to `RUNNING`.
+
+**List** (`ListWorkflowRuns`): returns the run-level records — run id, name, overall
+status, per-step status rollup, and timestamps — for runs the daemon currently holds.
+Job-level detail stays on the existing `ListJobs`; the GUI joins the two by
+`workflow_run_id`.
+
+### Run-level events
+
+A run emits its own lifecycle events over the existing event stream (`ListEvents`), so a
+client observes run progress directly rather than inferring it from N job events. These
+are **state transitions**, not progress ticks:
+
+- `WorkflowRunStartedEvent` — run accepted and scheduling began.
+- `WorkflowRunStatusChangeEvent` — run status changed (e.g. RUNNING→PAUSED, →CANCELLED,
+  →terminal).
+- `WorkflowStepStatusChangeEvent` — a step changed status (PENDING→RUNNING→SUCCEEDED/…),
+  carrying the run id and step id.
+- `WorkflowRunCompleteEvent` — run reached a terminal state (SUCCEEDED/FAILED/CANCELLED).
+
+Byte-level progress is **not** a run event: it continues to ride the existing
+`JobProgressEvent`, tagged with `workflow_run_id`/`workflow_step_id`. The run layer deals
+in state transitions only — which is exactly what makes its write rate low (next section).
+
+### Persistence: transition-only, write-coalesced, behind a store interface
+
+Run state is **persisted to the embedded bbolt store** so runs survive a daemon restart,
+with three deliberate constraints that keep bbolt's single-writer contention a non-issue
+and keep a future SQLite migration cheap.
+
+**1. Transition-only writes — never progress.** The store is written **only on a run or
+step status transition** (the events above). It is **never** written for byte progress,
+which stays an ephemeral event. A workflow of N steps produces on the order of a few
+transitions per step over the whole run (tens of writes total), not multiple writes per
+second. This is the single most important rule: it is why bbolt is viable here, where it
+would not be for a progress firehose.
+
+**2. Write-coalescing.** Transition writes use bbolt's `.Batch()` (as the existing
+`pruneTransferRecords` does), so concurrent step transitions in a fan-out coalesce into
+one transaction rather than contending on the global write lock. One bucket
+(`workflow_runs`), keyed by run id, value is the serialized run record (run + step
+statuses + timestamps). A whole run is one key, rewritten on each of its transitions — a
+small value, infrequently.
+
+**3. A store interface, bbolt behind it, SQLite-ready.** The engine never calls bbolt
+directly. It depends on a narrow interface:
+
+```go
+type RunStore interface {
+    Save(run *WorkflowRun) error         // upsert the whole run record (one key)
+    Load(runID string) (*WorkflowRun, error)
+    List() ([]*WorkflowRun, error)
+    Delete(runID string) error
+}
+```
+
+The v1 implementation is `bboltRunStore` writing the `workflow_runs` bucket with
+`.Batch()`. Because the engine only sees `RunStore`, **replacing bbolt with SQLite later
+is a new implementation of this interface plus a one-line wiring change** — no engine
+code moves. To keep that migration genuinely cheap, the record is stored as a
+**self-contained serialized value keyed by run id** (not spread across bbolt-specific
+sub-buckets or sequence keys), so the same shape maps directly to a SQLite row
+(`run_id` primary key, a status column or two, a serialized-detail column). The
+`Save`-whole-record-per-transition model also maps cleanly to a SQLite `UPSERT`.
+
+> **Note on consistency with jobs.** Jobs themselves are currently in-memory only (the
+> job manager holds them in a map; they are lost on restart). Persisting run state while
+> job state is ephemeral means that after a restart a reloaded run references jobs that no
+> longer exist — which the reconciliation rules below handle explicitly. When jobs gain
+> their own persistence later, run reconciliation can become richer (re-attach to a
+> resumed job rather than mark it interrupted).
+
+### Restart reconciliation
+
+On daemon start, the engine loads all runs from the `RunStore` and reconciles each,
+because a run persisted as `RUNNING` or `PAUSED` was **interrupted** by the shutdown — its
+in-flight jobs did not survive (jobs are in-memory today), so the run cannot simply
+"continue". Reconciliation is deterministic and runs before the daemon serves requests:
+
+| Persisted run status | Reconciled to | Rationale |
+|----------------------|---------------|-----------|
+| `PENDING` | `FAILED` (reason: interrupted before start) | It never began; its jobs do not exist. Marked terminal so it is not silently stuck. |
+| `RUNNING` | `FAILED` (reason: interrupted by restart) | Its in-flight jobs are gone (job state was in-memory). The run cannot resume a transfer that no longer exists. |
+| `PAUSED` | `FAILED` (reason: interrupted by restart) | Same — the paused jobs did not survive the restart. |
+| `SUCCEEDED` / `FAILED` / `CANCELLED` | unchanged | Terminal; just reloaded for `ListWorkflowRuns` history. |
+
+For a run reconciled to `FAILED`, each of its non-terminal steps is marked `SKIPPED` (or
+`FAILED` for the step that was `RUNNING`), and a `WorkflowRunCompleteEvent` is **not**
+re-emitted (the event stream is per-session; a reload is not a live completion). The run's
+record is rewritten once with the reconciled status so the store is consistent.
+
+This "interrupted ⇒ terminal, never auto-resume" rule is intentionally conservative: a
+workflow can perform large or destructive transfers, so silently resuming half a run
+across a restart (with no surviving job state to resume *from*) would be unsafe. The user
+sees the run ended as interrupted and can resubmit. When jobs themselves become durable in
+a future change, this table is the natural place to add a `RUNNING ⇒ resume` path, gated
+on the jobs actually having survived.
+
 ## New surface area (sketch, not built)
 
 Per the core principle, all parsing, validation, scheduling, and step execution
@@ -549,5 +707,5 @@ Authors reference the schema for editor validation:
   consistent with how `ListJobs` behaves today.
 - GUI affordance (import/run a workflow file) is out of scope for the first CLI +
   daemon implementation. Its design is specified separately in
-  `docs/Workflow-Runner-GUI.md` (open an authored workflow, prompt for parameters,
+  `docs/designs/workflows/Workflow-Runner-GUI.md` (open an authored workflow, prompt for parameters,
   submit to the daemon).

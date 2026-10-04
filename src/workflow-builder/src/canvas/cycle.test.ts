@@ -10,7 +10,7 @@ const node = (id: string): WorkflowGraph['nodes'][number] => ({
 });
 
 // A candidate edge is only safe to draw if adding it keeps the graph acyclic
-// (docs/Workflow-Builder-App.md sections 2, 7): the canvas forbids a connection at
+// (docs/designs/workflows/Workflow-Builder-App.md sections 2, 7): the canvas forbids a connection at
 // draw time rather than surfacing a cycle at export. wouldCreateCycle is the pure
 // predicate behind React Flow's isValidConnection hook.
 describe('wouldCreateCycle', () => {

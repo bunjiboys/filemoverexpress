@@ -4,7 +4,7 @@
 // canvas node (what React Flow renders). One descriptor per step `type`. The set of
 // descriptors is keyed by the schema's step-type enum, so a new format step type is
 // added by registering a descriptor - no envelope or engine change
-// (docs/Workflow-Builder-App.md sections 2 and 5).
+// (docs/designs/workflows/Workflow-Builder-App.md sections 2 and 5).
 
 // A single step as it appears in a workflow document's spec.steps[].
 export interface WorkflowStep {

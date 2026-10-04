@@ -7,7 +7,7 @@ export type CandidateEdge = WorkflowEdge;
 
 // Would adding `candidate` to the graph introduce a cycle? The canvas calls this at
 // draw time to forbid a connection that would break the DAG invariant
-// (docs/Workflow-Builder-App.md sections 2, 7), rather than letting an invalid graph
+// (docs/designs/workflows/Workflow-Builder-App.md sections 2, 7), rather than letting an invalid graph
 // reach export.
 //
 // Adding source -> target closes a cycle exactly when target can already reach source

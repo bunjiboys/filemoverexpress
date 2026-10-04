@@ -3,7 +3,7 @@ import schema from './v1.json';
 
 // The bundled, authoritative FME Workflow v1 JSON Schema (draft 2020-12).
 // Source of truth: schemas/workflow/v1.json. The builder bundles this exact file
-// and never authors a divergent copy (docs/Workflow-Builder-App.md section 13).
+// and never authors a divergent copy (docs/designs/workflows/Workflow-Builder-App.md section 13).
 export const WORKFLOW_SCHEMA = schema;
 
 // Step types are DERIVED from the schema's discriminator enum, not hardcoded, so a

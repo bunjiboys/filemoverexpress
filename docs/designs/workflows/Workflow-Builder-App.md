@@ -4,7 +4,7 @@ Status: Complete. The design below is implemented through Step 11 of the build
 order (section 16) on branch `feat/workflow-builder-scaffold`: all logic, UI, and
 both test tiers (Tier-1 Vitest at the 100% gate and the Tier-2 Playwright E2E suite)
 are in place. See "Implementation status" at the end of
-section 16 for what has shipped. This is a companion to `docs/Workflow-File-Format.md`
+section 16 for what has shipped. This is a companion to `docs/designs/workflows/Workflow-File-Format.md`
 and depends on that format being the single source of truth for what a node can be and
 how a graph serializes.
 
@@ -39,7 +39,7 @@ transfer engine - just the format schema and a canvas.
 
 ## 2. Relationship to the Workflow file format
 
-The builder is a strict projection of `docs/Workflow-File-Format.md`. Every visual
+The builder is a strict projection of `docs/designs/workflows/Workflow-File-Format.md`. Every visual
 concept maps to a format concept, with no invented abstractions:
 
 | Visual concept | Format concept |
@@ -476,7 +476,7 @@ exists means inventing a provisional shape that then has to be reconciled - exac
 the drift the schema-driven design (section 2) is meant to prevent.
 
 Note the ownership: the schema belongs to the **format**, not this app. It is defined
-in the Workflow File Format work (`docs/Workflow-File-Format.md`); the builder
+in the Workflow File Format work (`docs/designs/workflows/Workflow-File-Format.md`); the builder
 **bundles** that published schema and must never author a divergent copy of its own.
 
 **Status: this precondition is now met.** The schema exists in the repo at
@@ -656,7 +656,7 @@ All v1 design decisions below are settled.
 
 - **Build order (hard constraint)**: the published `v1.json` schema must exist and be
   bundled before any other builder work. The schema is owned by the format
-  (`docs/Workflow-File-Format.md`), bundled here, never re-authored divergently.
+  (`docs/designs/workflows/Workflow-File-Format.md`), bundled here, never re-authored divergently.
   Everything else (palette, forms, validation, editor annotations) derives from it. See section 13.
 - **Delivery**: a standalone static web app (built SPA, no backend), not a native
   binary. Wrappable in a Wails 3 desktop shell later with no frontend change;

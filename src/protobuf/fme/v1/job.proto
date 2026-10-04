@@ -28,8 +28,8 @@ message Job {
     // Whether the job was submitted with "overwrite existing files" on (the old
     // "force" flag): existing destination objects are re-uploaded instead of skipped.
     bool force = 19;
-    // Workflow provenance (design: docs/Workflow-Runner-GUI.md,
-    // docs/Workflow-File-Format.md). Set by the daemon's workflow engine when this job
+    // Workflow provenance (design: docs/designs/workflows/Workflow-Runner-GUI.md,
+    // docs/designs/workflows/Workflow-File-Format.md). Set by the daemon's workflow engine when this job
     // was created as a step of a workflow run; EMPTY for a standalone job submitted
     // outside a workflow. They let the GUI group and filter jobs by run and trace a
     // transfer back to the step that produced it. Not author-supplied and NOT part of

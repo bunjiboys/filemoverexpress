@@ -4,7 +4,7 @@ package fme.v1;
 
 option go_package = "github.com/awslabs/filemoverexpress/protobuf";
 
-// Workflow runner RPC surface (design: docs/Workflow-Runner-GUI.md). The GUI opens an
+// Workflow runner RPC surface (design: docs/designs/workflows/Workflow-Runner-GUI.md). The GUI opens an
 // externally-authored workflow file, prompts the user for its declared
 // spec.parameters, and submits the raw document plus the collected parameter values to
 // the daemon. The daemon owns everything else: it parses the document, resolves the

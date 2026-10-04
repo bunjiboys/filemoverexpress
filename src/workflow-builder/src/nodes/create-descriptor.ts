@@ -5,7 +5,7 @@ import type { NodeDescriptor, WorkflowNode, WorkflowStep } from './descriptor';
 // schema, not by the descriptor) and their `type`. This factory captures that shared
 // behavior so each descriptor is a one-line declaration.
 //
-// Invariants (see docs/Workflow-Builder-App.md section 5):
+// Invariants (see docs/designs/workflows/Workflow-Builder-App.md section 5):
 // - A node carries id, type, name, with, continueOnError.
 // - dependsOn is NOT owned here; edges are the canvas's concern, reconstructed by the
 //   graph serializer, so fromStep drops it and toStep never emits it.

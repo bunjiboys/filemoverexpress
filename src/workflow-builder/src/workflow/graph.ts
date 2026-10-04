@@ -11,7 +11,7 @@ export interface WorkflowEdge {
 // The in-memory graph the builder edits: canvas nodes plus dependency edges, and the
 // document-level fields that are not per-node (metadata, parameters, defaults). This
 // is the single source of truth both the canvas and the editor project from
-// (docs/Workflow-Builder-App.md section 10).
+// (docs/designs/workflows/Workflow-Builder-App.md section 10).
 export interface WorkflowGraph {
     nodes: WorkflowNode[];
     edges: WorkflowEdge[];

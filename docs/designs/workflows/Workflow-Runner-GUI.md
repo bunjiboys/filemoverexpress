@@ -1,8 +1,8 @@
 # Workflow Runner (GUI) — Design
 
 Status: Design / proposed. Nothing in this document is implemented yet. It is a
-companion to `docs/Workflow-File-Format.md` (the file format and its daemon-side
-execution engine) and to `docs/Workflow-Builder-App.md` (the standalone, offline
+companion to `docs/designs/workflows/Workflow-File-Format.md` (the file format and its daemon-side
+execution engine) and to `docs/designs/workflows/Workflow-Builder-App.md` (the standalone, offline
 *builder* that produces workflow files). This doc specifies the third surface: the
 in-app **runner** that opens a finished workflow file, prompts for its parameters, and
 hands it to the daemon to execute.
@@ -23,7 +23,7 @@ elsewhere**. The user:
 4. Watches progress through the GUI's existing job/event surface.
 
 This is the "GUI affordance (import/run a workflow file)" that
-`docs/Workflow-Builder-App.md` lists as out of scope for the builder's first phase. It
+`docs/designs/workflows/Workflow-Builder-App.md` lists as out of scope for the builder's first phase. It
 is specified here as its own surface because it belongs to a different application
 with a different dependency surface (daemon-connected) than the offline builder.
 
@@ -41,7 +41,7 @@ The runner neither authors workflows nor executes them itself:
 
 ## 2. Relationship to the file format and its parameters
 
-The format (`docs/Workflow-File-Format.md`) already defines everything the prompt needs.
+The format (`docs/designs/workflows/Workflow-File-Format.md`) already defines everything the prompt needs.
 The runner is a strict consumer of it:
 
 | Format concept | Runner use |

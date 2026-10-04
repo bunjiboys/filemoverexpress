@@ -12,7 +12,7 @@ import {
 // Serialize the editable graph to a canonical workflow document (export direction).
 // Each node is converted through its descriptor's toStep; dependsOn is reconstructed
 // here from the incoming edges, because edges - not descriptors - own dependency
-// (docs/Workflow-Builder-App.md sections 5, 9). Document-level metadata/parameters/
+// (docs/designs/workflows/Workflow-Builder-App.md sections 5, 9). Document-level metadata/parameters/
 // defaults pass through unchanged.
 export function toWorkflow(graph: WorkflowGraph): WorkflowDocument {
     // Group edge sources by their target, preserving the order sources appear in the

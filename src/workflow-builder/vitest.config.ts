@@ -2,7 +2,7 @@ import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 
 // Vitest config: unit/component tier (Tier 1) with the 100% coverage gate.
-// See docs/Workflow-Builder-App.md section 13. The Playwright E2E tier (Tier 2) is
+// See docs/designs/workflows/Workflow-Builder-App.md section 13. The Playwright E2E tier (Tier 2) is
 // configured separately in playwright.config.ts and is NOT merged into this number.
 export default defineConfig({
     plugins: [react()],

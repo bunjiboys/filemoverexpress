@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 // Playwright E2E config: Tier 2, real canvas interaction against the built app.
-// See docs/Workflow-Builder-App.md section 13. This is a separate CI step and is
+// See docs/designs/workflows/Workflow-Builder-App.md section 13. This is a separate CI step and is
 // NOT merged into the Vitest 100% coverage gate.
 export default defineConfig({
     testDir: './e2e',

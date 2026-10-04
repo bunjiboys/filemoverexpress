@@ -5,7 +5,7 @@ nodes onto a canvas, wire them to express dependencies, double-click to edit
 properties, and export a valid `fme.workflow.yaml`. It is a builder and validator,
 not a runner - the FME daemon executes workflows.
 
-Design: `docs/Workflow-Builder-App.md`. File format: `docs/Workflow-File-Format.md`.
+Design: `docs/designs/workflows/Workflow-Builder-App.md`. File format: `docs/designs/workflows/Workflow-File-Format.md`.
 
 ## Stack
 

@@ -11,7 +11,7 @@ import { inventoryReportDescriptor } from './inventory-report';
 // The registry's set of types is kept in lockstep with the schema's step-type enum
 // by registry.test.ts, which asserts the keys here equal STEP_TYPES. That test is
 // what makes "add a schema step type -> add one descriptor here" a checked contract
-// rather than a convention (docs/Workflow-Builder-App.md sections 2 and 13).
+// rather than a convention (docs/designs/workflows/Workflow-Builder-App.md sections 2 and 13).
 export const DESCRIPTORS: Readonly<Record<string, NodeDescriptor>> = {
     [jobDescriptor.type]: jobDescriptor,
     [checksumDescriptor.type]: checksumDescriptor,

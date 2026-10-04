@@ -6,7 +6,7 @@ export interface GraphValidationResult {
 }
 
 // Validate the structural rules the JSON Schema cannot express
-// (docs/Workflow-Builder-App.md section 7): unique node ids, edge endpoints that
+// (docs/designs/workflows/Workflow-Builder-App.md section 7): unique node ids, edge endpoints that
 // resolve to real nodes, and an acyclic graph (dependsOn forms a DAG).
 export function validateGraph(graph: WorkflowGraph): GraphValidationResult {
     const errors: string[] = [];

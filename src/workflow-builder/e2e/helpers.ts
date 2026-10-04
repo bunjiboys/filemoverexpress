@@ -1,6 +1,6 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 
-// Shared helpers for the Tier-2 Playwright suite (docs/Workflow-Builder-App.md
+// Shared helpers for the Tier-2 Playwright suite (docs/designs/workflows/Workflow-Builder-App.md
 // sections 10, 13). These drive the REAL built app in a real browser: the gestures
 // jsdom cannot run (drag, port-to-port wiring, cycle rejection, double-click modal,
 // view-mode switching, file open/save). The Tier-1 Vitest suite proves the pure logic;
