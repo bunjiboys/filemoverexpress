@@ -375,8 +375,22 @@ describe('FmeClientService', () => {
             expect(req.params).toHaveLength(2);
             expect(req.params[0].name).toBe('bucket');
             expect(req.params[0].value).toBe('my-bucket');
+            expect(req.params[0].values).toEqual([]);
             expect(req.params[1].name).toBe('force');
             expect(req.params[1].value).toBe('true');
+            expect(req.params[1].values).toEqual([]);
+        });
+
+        it('runWorkflow forwards a string_array param in values, leaving value empty', async () => {
+            const fn = unarySuccess('runWorkflow', {accepted: true, runId: 'run-2', errors: []});
+            await firstValueFrom(service.runWorkflow('doc-text', WorkflowFormat.YAML, [
+                {name: 'source_dir', value: '', values: ['/a', '/b']},
+            ]));
+            const req = fn.mock.calls[0][0];
+            expect(req.params).toHaveLength(1);
+            expect(req.params[0].name).toBe('source_dir');
+            expect(req.params[0].value).toBe('');
+            expect(req.params[0].values).toEqual(['/a', '/b']);
         });
 
         it('runWorkflow propagates RPC errors', async () => {

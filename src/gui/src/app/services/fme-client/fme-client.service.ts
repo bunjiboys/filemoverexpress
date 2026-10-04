@@ -856,11 +856,16 @@ export class FmeClientService {
     // endregion
 
     // region Workflow runner
-    private buildWorkflowParams(params: { name: string, value: string }[]): WorkflowParamValue[] {
+    private buildWorkflowParams(params: { name: string, value: string, values?: string[] }[]): WorkflowParamValue[] {
         return params.map((p) => {
             const pv = create(WorkflowParamValueSchema);
             pv.name = p.name;
+            // A scalar parameter fills `value`; a string_array fills `values` with its
+            // ordered elements (and leaves `value` empty), so a multi-source selection
+            // travels as discrete elements rather than a delimited string. See
+            // docs/designs/workflows/Workflow-Runner-GUI.md section 4.
             pv.value = p.value;
+            pv.values = p.values ?? [];
             return pv;
         });
     }
@@ -872,12 +877,13 @@ export class FmeClientService {
      *
      * @param document Raw workflow file text (YAML or JSON), exactly as authored.
      * @param format How to parse the document.
-     * @param params User-supplied parameter values (name/value string pairs).
+     * @param params User-supplied parameter values. A scalar carries `value`; a
+     *               string_array carries its ordered elements in `values`.
      */
     runWorkflow(
         document: string,
         format: WorkflowFormat,
-        params: { name: string, value: string }[],
+        params: { name: string, value: string, values?: string[] }[],
     ): Observable<RunWorkflowResponse> {
         const sub = new Subject<RunWorkflowResponse>();
         const req = create(RunWorkflowRequestSchema);
@@ -914,7 +920,7 @@ export class FmeClientService {
     validateWorkflow(
         document: string,
         format: WorkflowFormat,
-        params: { name: string, value: string }[],
+        params: { name: string, value: string, values?: string[] }[],
     ): Observable<ValidateWorkflowResponse> {
         const sub = new Subject<ValidateWorkflowResponse>();
         const req = create(ValidateWorkflowRequestSchema);
