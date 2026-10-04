@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
+	"strings"
 )
 
 // paramRef matches a ${params.<name>} reference. The name grammar matches the schema's
@@ -19,10 +20,21 @@ var (
 )
 
 type (
+	// ParamInputs carries the caller-supplied parameter values. Scalars holds the
+	// string form for the scalar parameter types (string/int/float/bool/enum), mirroring
+	// the CLI's --param k=v form; Lists holds the ordered element values for a
+	// string_array parameter. The two are kept separate because the wire form
+	// distinguishes them (WorkflowParamValue.value vs .values) and a scalar can never
+	// stand in for a list or vice versa.
+	ParamInputs struct {
+		Scalars map[string]string
+		Lists   map[string][]string
+	}
+
 	// resolvedParam is the outcome of resolving one declared parameter: its typed value
-	// (string/int64/float64/bool) and whether a concrete value (vs an empty form) was
-	// produced. Unresolved parameters (required-missing, bad coercion) carry a nil value
-	// and the resolution error is recorded separately.
+	// (string/int64/float64/bool/[]string) and whether a concrete value (vs an empty
+	// form) was produced. Unresolved parameters (required-missing, bad coercion) carry a
+	// nil value and the resolution error is recorded separately.
 	resolvedParam struct {
 		value any
 	}
@@ -38,24 +50,45 @@ type (
 	}
 )
 
-// Resolve applies declared parameters to a step's `with` payload (format doc
-// "Parameters"). It resolves each declared parameter against the caller-supplied values
+// ScalarInputs builds a ParamInputs carrying only scalar values. It is the common case
+// (every parameter type except string_array) and keeps callers that have no list values
+// concise.
+func ScalarInputs(scalars map[string]string) ParamInputs {
+	return ParamInputs{Scalars: scalars}
+}
+
+// ListInputs builds a ParamInputs carrying only list values (string_array parameters).
+func ListInputs(lists map[string][]string) ParamInputs {
+	return ParamInputs{Lists: lists}
+}
+
+// Resolve applies declared parameters to a step's `with` payload for the common
+// scalar-only case. It is a thin shim over ResolveWith for callers that have only scalar
+// values (the pre-string_array signature), so existing call sites and tests stay
+// unchanged.
+func Resolve(with, defaults map[string]any, params []Parameter, values map[string]string) (map[string]any, []string) {
+	return ResolveWith(with, defaults, params, ScalarInputs(values))
+}
+
+// ResolveWith applies declared parameters to a step's `with` payload (format doc
+// "Parameters"). It resolves each declared parameter against the caller-supplied inputs
 // (precedence: user value > declared default > empty form), coercing and
 // constraint-checking it, then merges `defaults` under `with` and substitutes every
 // ${params.name} reference.
 //
-// Caller values arrive as strings (the RPC carries WorkflowParamValue as string->string,
-// mirroring the CLI's --param k=v form); the declared default is already a typed value
-// from the parsed document. Both are coerced through one path to the parameter's declared
-// type, so a bool default and a "true" user value resolve identically.
+// Scalar caller values arrive as strings (mirroring the CLI's --param k=v form) in
+// inputs.Scalars; a string_array's elements arrive in inputs.Lists. The declared default
+// is already a typed value from the parsed document. Values are coerced through one path
+// to the parameter's declared type, so a bool default and a "true" user value resolve
+// identically, and a string_array default array and a user element list resolve
+// identically.
 //
-// Substitution is whole-value (preserves native type) or embedded (renders to string),
-// and recurses into arrays and nested maps. It applies only within `with`/`defaults`,
-// never to type/id/dependsOn, which the caller does not pass here. Resolution and
-// substitution errors are returned together with the (partially) resolved payload so the
-// caller gets both.
-func Resolve(with, defaults map[string]any, params []Parameter, values map[string]string) (map[string]any, []string) {
-	set, errs := resolveParams(params, values)
+// Substitution is whole-value (preserves native type, so a string_array fills a list
+// `with` position such as `sources`) or embedded (renders to string), and recurses into
+// arrays and nested maps. It applies only within `with`/`defaults`. Resolution and
+// substitution errors are returned together with the (partially) resolved payload.
+func ResolveWith(with, defaults map[string]any, params []Parameter, inputs ParamInputs) (map[string]any, []string) {
+	set, errs := resolveParamsWith(params, inputs)
 
 	merged := mergeDefaults(with, defaults)
 
@@ -78,16 +111,15 @@ func mergeDefaults(with, defaults map[string]any) map[string]any {
 	return merged
 }
 
-// resolveParams resolves every declared parameter into the set, collecting one error
+// resolveParamsWith resolves every declared parameter into the set, collecting one error
 // string per failure. The returned set always has an entry per declared parameter so
-// substitution can distinguish a declared-but-unresolved reference from an
-// undeclared one.
-func resolveParams(params []Parameter, values map[string]string) (resolvedSet, []string) {
+// substitution can distinguish a declared-but-unresolved reference from an undeclared one.
+func resolveParamsWith(params []Parameter, inputs ParamInputs) (resolvedSet, []string) {
 	set := make(resolvedSet, len(params))
 	var errs []string
 	for i := range params {
 		spec := params[i]
-		rp, err := resolveOne(spec, values)
+		rp, err := resolveOne(spec, inputs)
 		if err != "" {
 			errs = append(errs, err)
 		}
@@ -98,9 +130,14 @@ func resolveParams(params []Parameter, values map[string]string) (resolvedSet, [
 
 // resolveOne resolves a single parameter: applies precedence, enforces the required and
 // typed-no-default rules, then coerces and constraint-checks. It returns the resolved
-// param and an error string ("" on success).
-func resolveOne(spec Parameter, values map[string]string) (resolvedParam, string) {
-	raw, supplied := rawValue(spec, values)
+// param and an error string ("" on success). A string_array is resolved from the list
+// inputs; every other type from the scalar inputs.
+func resolveOne(spec Parameter, inputs ParamInputs) (resolvedParam, string) {
+	if spec.Type == ParamStringArray {
+		return resolveStringArray(spec, inputs)
+	}
+
+	raw, supplied := rawValue(spec, inputs.Scalars)
 	if !supplied {
 		return emptyForm(spec)
 	}
@@ -113,6 +150,79 @@ func resolveOne(spec Parameter, values map[string]string) (resolvedParam, string
 		return resolvedParam{}, err
 	}
 	return resolvedParam{value: typed}, ""
+}
+
+// resolveStringArray resolves a string_array parameter. Precedence mirrors the scalar
+// path: a supplied non-empty list wins over the declared default array; absence of both
+// is empty (an error only when required). The pattern constraint, when set, is applied to
+// every element. The resolved value is a []string so a whole-value reference fills a list
+// `with` position such as `sources`.
+func resolveStringArray(spec Parameter, inputs ParamInputs) (resolvedParam, string) {
+	elems, supplied := stringArrayValue(spec, inputs.Lists)
+	if !supplied || len(elems) == 0 {
+		if spec.Required {
+			return resolvedParam{}, fmt.Sprintf("required parameter: %s", spec.Name)
+		}
+		return resolvedParam{value: []string{}}, ""
+	}
+	if err := checkElementPattern(spec, elems); err != "" {
+		return resolvedParam{}, err
+	}
+	return resolvedParam{value: elems}, ""
+}
+
+// stringArrayValue returns the element list to resolve and whether one is present,
+// applying precedence user list > declared default array. A supplied list (even empty)
+// wins over the default; absence of both yields supplied=false.
+func stringArrayValue(spec Parameter, lists map[string][]string) ([]string, bool) {
+	if v, ok := lists[spec.Name]; ok {
+		return v, true
+	}
+	if spec.Default != nil {
+		return defaultAsStringSlice(spec.Default), true
+	}
+	return nil, false
+}
+
+// defaultAsStringSlice renders a parsed string_array default (a []any of strings from
+// YAML/JSON) into a []string. A non-string element is rendered to its string form so a
+// malformed default degrades predictably rather than panicking; schema validation
+// rejects a non-array / non-string-element default before resolution runs.
+func defaultAsStringSlice(def any) []string {
+	arr, ok := def.([]any)
+	if !ok {
+		// COVERAGE: justified-unreachable defensive branch. defaultAsStringSlice is only
+		// called for a string_array parameter whose Default is non-nil; the schema's
+		// per-type default rule admits only a JSON/YAML array there, which parses to
+		// []any. A non-array default is rejected by schema validation before resolution
+		// runs. Kept defensive (returns nil, resolving to an empty list) rather than
+		// panicking; not covered because no schema-valid input produces another type.
+		// See docs/designs/workflows/Workflow-Engine-Implementation-Plan.md.
+		return nil
+	}
+	out := make([]string, len(arr))
+	for i, e := range arr {
+		out[i] = renderString(e)
+	}
+	return out
+}
+
+// checkElementPattern applies the parameter's pattern (when set) to EVERY element as a
+// full match, reporting the first offending element. An un-compilable pattern is an error.
+func checkElementPattern(spec Parameter, elems []string) string {
+	if spec.Pattern == "" {
+		return ""
+	}
+	re, err := regexp.Compile(spec.Pattern)
+	if err != nil {
+		return fmt.Sprintf("parameter %s has an invalid pattern: %v", spec.Name, err)
+	}
+	for _, e := range elems {
+		if m := re.FindString(e); m != e {
+			return fmt.Sprintf("parameter %s element %q does not match pattern %s", spec.Name, e, spec.Pattern)
+		}
+	}
+	return ""
 }
 
 // rawValue returns the string form of the value to resolve and whether one is present,
@@ -275,6 +385,21 @@ func (s *substitutor) value(v any) any {
 	}
 }
 
+// wholeValue returns a resolved parameter value for a whole-value substitution,
+// normalizing a []string (a resolved string_array) to a []any so it matches the shape of
+// a literal array in the parsed document; downstream validation and executors treat a
+// `sources` array as []any. Scalar values pass through unchanged.
+func wholeValue(v any) any {
+	if elems, ok := v.([]string); ok {
+		out := make([]any, len(elems))
+		for i, e := range elems {
+			out[i] = e
+		}
+		return out
+	}
+	return v
+}
+
 // substituteString applies whole-value substitution (preserving native type) when the
 // string is exactly one reference, otherwise renders every embedded reference to its
 // string form. An undeclared reference records an error; a whole-value reference to an
@@ -286,7 +411,7 @@ func (s *substitutor) substituteString(str string) any {
 			s.errs = append(s.errs, fmt.Sprintf("unknown parameter reference: %s", m[1]))
 			return str
 		}
-		return rp.value
+		return wholeValue(rp.value)
 	}
 	return paramRef.ReplaceAllStringFunc(str, func(ref string) string {
 		name := paramRef.FindStringSubmatch(ref)[1]
@@ -314,6 +439,8 @@ func renderString(value any) string {
 		return strconv.FormatInt(v, 10)
 	case float64:
 		return strconv.FormatFloat(v, 'f', -1, 64)
+	case []string:
+		return strings.Join(v, ", ")
 	default:
 		// COVERAGE: justified-unreachable defensive branch. renderString is called on a
 		// coerced parameter value (string/bool/int64/float64) or on spec.Default, which in

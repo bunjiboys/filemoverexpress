@@ -164,7 +164,7 @@ func validateSource(t *testing.T, src string, params map[string]string, profileE
 		// these tests feed the parsed views, and treat a parse error as a schema finding.
 		return []ValidationError{{Kind: KindSchema, Message: err.Error()}}
 	}
-	return Validate(generic, doc, params, profileExists)
+	return Validate(generic, doc, ScalarInputs(params), profileExists)
 }
 
 func assertKind(t *testing.T, errs []ValidationError, kind ValidationErrorKind) {

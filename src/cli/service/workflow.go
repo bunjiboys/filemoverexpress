@@ -114,14 +114,22 @@ func workflowFormat(f fmev1.WorkflowFormat) workflow.Format {
 	return workflow.FormatYAML
 }
 
-// workflowParams converts the repeated WorkflowParamValue messages to the name->value map
-// the engine resolves against. A later duplicate name overrides an earlier one.
-func workflowParams(values []*fmev1.WorkflowParamValue) map[string]string {
-	out := make(map[string]string, len(values))
+// workflowParams converts the repeated WorkflowParamValue messages to the ParamInputs the
+// engine resolves against. A scalar parameter's string arrives in `value` (Scalars); a
+// string_array's elements arrive in `values` (Lists). A message carrying `values` is
+// treated as a list input; otherwise it is a scalar. A later duplicate name overrides an
+// earlier one.
+func workflowParams(values []*fmev1.WorkflowParamValue) workflow.ParamInputs {
+	scalars := make(map[string]string)
+	lists := make(map[string][]string)
 	for _, v := range values {
-		out[v.GetName()] = v.GetValue()
+		if len(v.GetValues()) > 0 {
+			lists[v.GetName()] = v.GetValues()
+			continue
+		}
+		scalars[v.GetName()] = v.GetValue()
 	}
-	return out
+	return workflow.ParamInputs{Scalars: scalars, Lists: lists}
 }
 
 // toProtoValidationErrors maps engine ValidationErrors to the proto message the GUI routes.

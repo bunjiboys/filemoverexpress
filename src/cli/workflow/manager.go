@@ -53,7 +53,7 @@ func NewWorkflowManager(store RunStore, registry Registry, maxActive int, profil
 // record, persists it, launches execution in the background, and returns the run id. A
 // non-nil error is reserved for an unexpected internal failure (e.g. the initial store
 // write); a parse failure or any content problem is a validation error, not an error.
-func (m *WorkflowManager) Start(src []byte, format Format, params map[string]string) (string, []ValidationError, error) {
+func (m *WorkflowManager) Start(src []byte, format Format, params ParamInputs) (string, []ValidationError, error) {
 	generic, doc, parseErr := Parse(src, format)
 	if parseErr != nil {
 		return "", []ValidationError{{Kind: KindSchema, Message: parseErr.Error()}}, nil

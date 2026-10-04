@@ -10,6 +10,109 @@ import (
 // table tests.
 func f64(v float64) *float64 { return &v }
 
+// --- string_array: coercion, element-wise pattern, defaults, empty/required ---
+
+func TestResolveStringArray(t *testing.T) {
+	cases := []struct {
+		name      string
+		spec      Parameter
+		inputs    ParamInputs
+		wantValue any
+		wantErr   string
+	}{
+		{
+			name:      "user list value",
+			spec:      Parameter{Name: "src", Type: ParamStringArray},
+			inputs:    ListInputs(map[string][]string{"src": {"/a", "/b"}}),
+			wantValue: []string{"/a", "/b"},
+		},
+		{
+			name:      "single-element list",
+			spec:      Parameter{Name: "src", Type: ParamStringArray},
+			inputs:    ListInputs(map[string][]string{"src": {"/only"}}),
+			wantValue: []string{"/only"},
+		},
+		{
+			name:      "default array when unsupplied",
+			spec:      Parameter{Name: "src", Type: ParamStringArray, Default: []any{"/d1", "/d2"}},
+			inputs:    ParamInputs{},
+			wantValue: []string{"/d1", "/d2"},
+		},
+		{
+			name:      "user list overrides default array",
+			spec:      Parameter{Name: "src", Type: ParamStringArray, Default: []any{"/d1"}},
+			inputs:    ListInputs(map[string][]string{"src": {"/u1", "/u2"}}),
+			wantValue: []string{"/u1", "/u2"},
+		},
+		{
+			name:      "optional empty resolves to empty slice",
+			spec:      Parameter{Name: "src", Type: ParamStringArray},
+			inputs:    ParamInputs{},
+			wantValue: []string{},
+		},
+		{
+			name:    "required with no elements is an error",
+			spec:    Parameter{Name: "src", Type: ParamStringArray, Required: true},
+			inputs:  ParamInputs{},
+			wantErr: "required parameter: src",
+		},
+		{
+			name:    "required with empty supplied list is an error",
+			spec:    Parameter{Name: "src", Type: ParamStringArray, Required: true},
+			inputs:  ListInputs(map[string][]string{"src": {}}),
+			wantErr: "required parameter: src",
+		},
+		{
+			name:      "pattern applied to every element - all match",
+			spec:      Parameter{Name: "src", Type: ParamStringArray, Pattern: `^/.*`},
+			inputs:    ListInputs(map[string][]string{"src": {"/a", "/b/c"}}),
+			wantValue: []string{"/a", "/b/c"},
+		},
+		{
+			name:    "pattern miss on one element fails and names it",
+			spec:    Parameter{Name: "src", Type: ParamStringArray, Pattern: `^/.*`},
+			inputs:  ListInputs(map[string][]string{"src": {"/a", "relative"}}),
+			wantErr: "does not match pattern",
+		},
+		{
+			name:    "invalid pattern regexp",
+			spec:    Parameter{Name: "src", Type: ParamStringArray, Pattern: `(`},
+			inputs:  ListInputs(map[string][]string{"src": {"/a"}}),
+			wantErr: "invalid pattern",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, errs := resolveParamsWith([]Parameter{tc.spec}, tc.inputs)
+			assertErr(t, errs, tc.wantErr)
+			if tc.wantErr == "" && !reflect.DeepEqual(got[tc.spec.Name].value, tc.wantValue) {
+				t.Errorf("value = %#v (%T), want %#v (%T)",
+					got[tc.spec.Name].value, got[tc.spec.Name].value, tc.wantValue, tc.wantValue)
+			}
+		})
+	}
+}
+
+// TestResolveStringArrayWholeValueSubstitution proves a whole-value reference resolves to
+// the []string in a list `with` position (the sources use case), and an embedded reference
+// renders the array to its string form.
+func TestResolveStringArrayWholeValueSubstitution(t *testing.T) {
+	params := []Parameter{{Name: "src", Type: ParamStringArray}}
+	with := map[string]any{
+		"sources":  "${params.src}",
+		"embedded": "paths: ${params.src}",
+	}
+	got, errs := ResolveWith(with, nil, params, ListInputs(map[string][]string{"src": {"/a", "/b"}}))
+	assertErr(t, errs, "")
+	wantSources := []any{"/a", "/b"}
+	if !reflect.DeepEqual(got["sources"], wantSources) {
+		t.Errorf("sources = %#v, want %#v", got["sources"], wantSources)
+	}
+	if got["embedded"] != "paths: /a, /b" {
+		t.Errorf("embedded = %q, want %q", got["embedded"], "paths: /a, /b")
+	}
+}
+
 // --- resolveOne: precedence, required, empty-form, typed-no-default ---
 
 func TestResolveOnePrecedenceAndEmptyForms(t *testing.T) {
@@ -77,7 +180,7 @@ func TestResolveOnePrecedenceAndEmptyForms(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got, errs := resolveParams([]Parameter{tc.spec}, tc.values)
+			got, errs := resolveParamsWith([]Parameter{tc.spec}, ScalarInputs(tc.values))
 			assertErr(t, errs, tc.wantErr)
 			if tc.wantErr == "" && !reflect.DeepEqual(got[tc.spec.Name].value, tc.wantValue) {
 				t.Errorf("value = %#v (%T), want %#v (%T)",
@@ -113,7 +216,7 @@ func TestResolveOneCoercion(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got, errs := resolveParams([]Parameter{tc.spec}, tc.values)
+			got, errs := resolveParamsWith([]Parameter{tc.spec}, ScalarInputs(tc.values))
 			assertErr(t, errs, tc.wantErr)
 			if tc.wantErr == "" && !reflect.DeepEqual(got[tc.spec.Name].value, tc.wantValue) {
 				t.Errorf("value = %#v (%T), want %#v (%T)",
@@ -140,7 +243,7 @@ func TestResolveOneCoercesTypedDefault(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got, errs := resolveParams([]Parameter{tc.spec}, map[string]string{})
+			got, errs := resolveParamsWith([]Parameter{tc.spec}, ParamInputs{})
 			assertErr(t, errs, "")
 			if !reflect.DeepEqual(got[tc.spec.Name].value, tc.wantValue) {
 				t.Errorf("value = %#v (%T), want %#v (%T)",
@@ -173,7 +276,7 @@ func TestResolveOneConstraints(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			_, errs := resolveParams([]Parameter{tc.spec}, tc.values)
+			_, errs := resolveParamsWith([]Parameter{tc.spec}, ScalarInputs(tc.values))
 			assertErr(t, errs, tc.wantErr)
 		})
 	}

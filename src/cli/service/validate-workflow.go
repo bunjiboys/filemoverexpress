@@ -31,7 +31,7 @@ func (*FileMoverServer) ValidateWorkflow(
 // validateWorkflowDocument parses and validates a document, returning every validation
 // failure (a parse failure is surfaced as a schema-level validation error, not a transport
 // error, so the GUI shows it in the same place as other validation findings).
-func validateWorkflowDocument(src []byte, format workflow.Format, params map[string]string) []workflow.ValidationError {
+func validateWorkflowDocument(src []byte, format workflow.Format, params workflow.ParamInputs) []workflow.ValidationError {
 	generic, doc, err := workflow.Parse(src, format)
 	if err != nil {
 		return []workflow.ValidationError{{Kind: workflow.KindSchema, Message: err.Error()}}

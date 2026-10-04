@@ -39,8 +39,16 @@ message WorkflowParamValue {
     // The declared parameter name (matches ^[A-Za-z_][A-Za-z0-9_]*$).
     string name = 1;
     // The value as a string, coerced daemon-side to the parameter's declared type.
-    // For a bool parameter this is "true" / "false".
+    // For a bool parameter this is "true" / "false". Used for the scalar parameter
+    // types (string/int/float/bool/enum); empty for a string_array (see `values`).
     string value = 2;
+    // The ordered element values for a string_array parameter. A string_array supplies
+    // its value here instead of in `value`, so a multi-source selection is carried as
+    // discrete elements rather than a delimited string (which would be ambiguous against
+    // a path containing the delimiter). Empty for a scalar parameter. Each element is
+    // coerced/validated daemon-side; when the parameter declares a `pattern`, every
+    // element must match. See docs/designs/workflows/Workflow-File-Format.md.
+    repeated string values = 3;
 }
 
 // One validation failure, returned by ValidateWorkflow (and by a rejected RunWorkflow)

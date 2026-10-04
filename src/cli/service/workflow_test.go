@@ -91,9 +91,13 @@ func TestWorkflowParamsMapping(t *testing.T) {
 	got := workflowParams([]*fmev1.WorkflowParamValue{
 		{Name: "a", Value: "1"},
 		{Name: "b", Value: "two"},
+		{Name: "src", Values: []string{"/x", "/y"}},
 	})
-	if got["a"] != "1" || got["b"] != "two" || len(got) != 2 {
-		t.Errorf("params mapping = %v", got)
+	if got.Scalars["a"] != "1" || got.Scalars["b"] != "two" || len(got.Scalars) != 2 {
+		t.Errorf("scalar params mapping = %v", got.Scalars)
+	}
+	if len(got.Lists["src"]) != 2 || got.Lists["src"][0] != "/x" || got.Lists["src"][1] != "/y" {
+		t.Errorf("list params mapping = %v", got.Lists)
 	}
 }
 

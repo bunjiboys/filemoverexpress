@@ -88,7 +88,7 @@ func managerFor(store RunStore) *WorkflowManager {
 func TestWorkflowManagerStartAccepts(t *testing.T) {
 	store := newMemStore()
 	mgr := managerFor(store)
-	runID, verrs, err := mgr.Start([]byte(validRunYAML), FormatYAML, map[string]string{"day": "15"})
+	runID, verrs, err := mgr.Start([]byte(validRunYAML), FormatYAML, ScalarInputs(map[string]string{"day": "15"}))
 	if err != nil {
 		t.Fatalf("Start err = %v", err)
 	}
@@ -111,7 +111,7 @@ func TestWorkflowManagerStartRejectsInvalid(t *testing.T) {
 	store := newMemStore()
 	mgr := managerFor(store)
 	// Missing required 'day' -> PARAMETER error, run rejected, nothing persisted.
-	runID, verrs, err := mgr.Start([]byte(validRunYAML), FormatYAML, map[string]string{})
+	runID, verrs, err := mgr.Start([]byte(validRunYAML), FormatYAML, ParamInputs{})
 	if err != nil {
 		t.Fatalf("Start err = %v", err)
 	}
@@ -128,7 +128,7 @@ func TestWorkflowManagerStartRejectsInvalid(t *testing.T) {
 func TestWorkflowManagerStartParseError(t *testing.T) {
 	store := newMemStore()
 	mgr := managerFor(store)
-	_, verrs, err := mgr.Start([]byte("{not yaml: ["), FormatYAML, nil)
+	_, verrs, err := mgr.Start([]byte("{not yaml: ["), FormatYAML, ParamInputs{})
 	if err != nil {
 		t.Fatalf("Start err = %v (a parse failure should be a validation error, not a hard error)", err)
 	}
@@ -138,7 +138,7 @@ func TestWorkflowManagerStartParseError(t *testing.T) {
 func TestWorkflowManagerGet(t *testing.T) {
 	store := newMemStore()
 	mgr := managerFor(store)
-	runID, _, err := mgr.Start([]byte(validRunYAML), FormatYAML, map[string]string{"day": "15"})
+	runID, _, err := mgr.Start([]byte(validRunYAML), FormatYAML, ScalarInputs(map[string]string{"day": "15"}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -155,7 +155,7 @@ func TestWorkflowManagerRunIDsUnique(t *testing.T) {
 	mgr := managerFor(newMemStore())
 	seen := map[string]bool{}
 	for i := 0; i < 5; i++ {
-		id, _, err := mgr.Start([]byte(validRunYAML), FormatYAML, map[string]string{"day": "15"})
+		id, _, err := mgr.Start([]byte(validRunYAML), FormatYAML, ScalarInputs(map[string]string{"day": "15"}))
 		if err != nil || id == "" {
 			t.Fatalf("Start %d: id=%q err=%v", i, id, err)
 		}
@@ -177,7 +177,7 @@ func (errStore) Delete(string) error               { return nil }
 func TestWorkflowManagerStartSaveError(t *testing.T) {
 	// The initial run-record Save failing is a hard error from Start (no run created).
 	mgr := managerFor(errStore{})
-	_, verrs, err := mgr.Start([]byte(validRunYAML), FormatYAML, map[string]string{"day": "15"})
+	_, verrs, err := mgr.Start([]byte(validRunYAML), FormatYAML, ScalarInputs(map[string]string{"day": "15"}))
 	if err == nil {
 		t.Fatal("expected a hard error when the initial Save fails")
 	}
@@ -191,7 +191,7 @@ func TestWorkflowManagerTransitionLoadErrorsAreLogged(t *testing.T) {
 	// load-error branches. The run still completes without panicking.
 	store := &loadErrStore{inner: newMemStore()}
 	mgr := managerFor(store)
-	runID, _, err := mgr.Start([]byte(validRunYAML), FormatYAML, map[string]string{"day": "15"})
+	runID, _, err := mgr.Start([]byte(validRunYAML), FormatYAML, ScalarInputs(map[string]string{"day": "15"}))
 	if err != nil || runID == "" {
 		t.Fatalf("Start: id=%q err=%v", runID, err)
 	}
@@ -213,7 +213,7 @@ func TestWorkflowManagerPersistErrorIsLogged(t *testing.T) {
 	// drives persist's error-log branch during transitions.
 	store := &saveFailAfterFirst{inner: newMemStore()}
 	mgr := managerFor(store)
-	runID, _, err := mgr.Start([]byte(validRunYAML), FormatYAML, map[string]string{"day": "15"})
+	runID, _, err := mgr.Start([]byte(validRunYAML), FormatYAML, ScalarInputs(map[string]string{"day": "15"}))
 	if err != nil || runID == "" {
 		t.Fatalf("Start: id=%q err=%v", runID, err)
 	}
@@ -250,8 +250,8 @@ func managerWithExec(store RunStore, exec StepExecutor) *WorkflowManager {
 func TestWorkflowManagerListReturnsPersistedRuns(t *testing.T) {
 	store := newMemStore()
 	mgr := managerFor(store)
-	id1, _, _ := mgr.Start([]byte(validRunYAML), FormatYAML, map[string]string{"day": "15"})
-	id2, _, _ := mgr.Start([]byte(validRunYAML), FormatYAML, map[string]string{"day": "15"})
+	id1, _, _ := mgr.Start([]byte(validRunYAML), FormatYAML, ScalarInputs(map[string]string{"day": "15"}))
+	id2, _, _ := mgr.Start([]byte(validRunYAML), FormatYAML, ScalarInputs(map[string]string{"day": "15"}))
 	waitFor(t, func() bool {
 		runs, err := mgr.List()
 		return err == nil && len(runs) == 2
@@ -270,7 +270,7 @@ func TestWorkflowManagerCancelActiveRun(t *testing.T) {
 	store := newMemStore()
 	exec := newGatingExecutor("sleep-step")
 	mgr := managerWithExec(store, exec)
-	runID, _, err := mgr.Start([]byte(singleGatedYAML), FormatYAML, nil)
+	runID, _, err := mgr.Start([]byte(singleGatedYAML), FormatYAML, ParamInputs{})
 	if err != nil || runID == "" {
 		t.Fatalf("Start: id=%q err=%v", runID, err)
 	}
@@ -293,7 +293,7 @@ func TestWorkflowManagerPauseResumeActiveRun(t *testing.T) {
 	store := newMemStore()
 	exec := newGatingExecutor("sleep-step")
 	mgr := managerWithExec(store, exec)
-	runID, _, err := mgr.Start([]byte(singleGatedYAML), FormatYAML, nil)
+	runID, _, err := mgr.Start([]byte(singleGatedYAML), FormatYAML, ParamInputs{})
 	if err != nil || runID == "" {
 		t.Fatalf("Start: id=%q err=%v", runID, err)
 	}
@@ -329,7 +329,7 @@ func TestWorkflowManagerLifecycleUnknownRun(t *testing.T) {
 func TestWorkflowManagerLifecycleTerminalRun(t *testing.T) {
 	store := newMemStore()
 	mgr := managerFor(store)
-	runID, _, err := mgr.Start([]byte(validRunYAML), FormatYAML, map[string]string{"day": "15"})
+	runID, _, err := mgr.Start([]byte(validRunYAML), FormatYAML, ScalarInputs(map[string]string{"day": "15"}))
 	if err != nil || runID == "" {
 		t.Fatalf("Start: id=%q err=%v", runID, err)
 	}
@@ -348,7 +348,7 @@ func TestWorkflowManagerGeneratesUniqueRunIDs(t *testing.T) {
 	mgr := managerFor(newMemStore())
 	seen := map[string]bool{}
 	for i := 0; i < 5; i++ {
-		id, _, err := mgr.Start([]byte(validRunYAML), FormatYAML, map[string]string{"day": "15"})
+		id, _, err := mgr.Start([]byte(validRunYAML), FormatYAML, ScalarInputs(map[string]string{"day": "15"}))
 		if err != nil || id == "" {
 			t.Fatalf("Start %d: id=%q err=%v", i, id, err)
 		}
@@ -373,7 +373,7 @@ func TestWorkflowManagerJobLifecycleFactoryWiredAndCleaned(t *testing.T) {
 		mu.Unlock()
 		return &fakeLifecycle{}, func() { mu.Lock(); cleaned = true; mu.Unlock() }
 	}
-	runID, _, err := mgr.Start([]byte(validRunYAML), FormatYAML, map[string]string{"day": "15"})
+	runID, _, err := mgr.Start([]byte(validRunYAML), FormatYAML, ScalarInputs(map[string]string{"day": "15"}))
 	if err != nil || runID == "" {
 		t.Fatalf("Start: id=%q err=%v", runID, err)
 	}

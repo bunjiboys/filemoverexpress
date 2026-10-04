@@ -45,7 +45,7 @@ func VersionSupported(apiVersion string) bool {
 // graph rules, then parameter resolution, then post-substitution path safety and profile
 // preflight. A failure in an earlier phase does not suppress later phases, so the caller
 // sees every problem at once.
-func Validate(generic any, doc Document, params map[string]string, profileExists func(string) bool) []ValidationError {
+func Validate(generic any, doc Document, params ParamInputs, profileExists func(string) bool) []ValidationError {
 	var errs []ValidationError
 	errs = append(errs, versionErrors(doc)...)
 	errs = append(errs, schemaErrors(generic)...)
@@ -89,12 +89,12 @@ func graphErrors(doc Document) []ValidationError {
 // resolveSteps resolves parameters into every step's with (merging defaults), returning
 // the per-step resolved payloads and any PARAMETER errors. Substitution errors (resolution
 // failures, unknown references) are reported as PARAMETER errors.
-func resolveSteps(doc Document, params map[string]string) (map[string]map[string]any, []ValidationError) {
+func resolveSteps(doc Document, params ParamInputs) (map[string]map[string]any, []ValidationError) {
 	resolved := make(map[string]map[string]any, len(doc.Spec.Steps))
 	var errs []ValidationError
 	for i := range doc.Spec.Steps {
 		step := doc.Spec.Steps[i]
-		out, resolveErrs := Resolve(step.With, doc.Spec.Defaults, doc.Spec.Parameters, params)
+		out, resolveErrs := ResolveWith(step.With, doc.Spec.Defaults, doc.Spec.Parameters, params)
 		resolved[step.ID] = out
 		for _, msg := range resolveErrs {
 			errs = append(errs, ValidationError{Kind: KindParameter, StepID: step.ID, Message: msg})

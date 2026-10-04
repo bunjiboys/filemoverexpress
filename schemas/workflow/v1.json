@@ -94,7 +94,8 @@
                         "int",
                         "float",
                         "bool",
-                        "enum"
+                        "enum",
+                        "string_array"
                     ]
                 },
                 "required": {
@@ -105,7 +106,7 @@
                     "description": "Default value; must be of the parameter's own type (enforced by the validator)."
                 },
                 "pattern": {
-                    "description": "RE2 regex the value must fully match. string only.",
+                    "description": "RE2 regex the value must fully match. string and string_array only (applied to every element of a string_array).",
                     "type": "string"
                 },
                 "min": {
@@ -151,7 +152,10 @@
                     "if": {
                         "properties": {
                             "type": {
-                                "const": "string"
+                                "enum": [
+                                    "string",
+                                    "string_array"
+                                ]
                             }
                         }
                     },

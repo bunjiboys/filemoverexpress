@@ -16,6 +16,11 @@ const (
 	ParamFloat  ParameterType = "float"
 	ParamBool   ParameterType = "bool"
 	ParamEnum   ParameterType = "enum"
+	// ParamStringArray is the one list parameter type in v1: it resolves to a []string
+	// so a whole-value reference can fill a list `with` position such as a Job or
+	// Checksum step's `sources`. Its `pattern` constraint, when set, is applied to every
+	// element. See docs/designs/workflows/Workflow-File-Format.md.
+	ParamStringArray ParameterType = "string_array"
 
 	StepJob             StepType = "Job"
 	StepChecksum        StepType = "Checksum"
