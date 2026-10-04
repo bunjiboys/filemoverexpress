@@ -5,6 +5,7 @@ import { MatIcon } from '@angular/material/icon';
 import { MatDivider } from '@angular/material/list';
 import { MatMenu, MatMenuItem, MatMenuTrigger } from '@angular/material/menu';
 import { ConfigComponent } from '@containers/forms/config/config.component';
+import { WorkflowRunnerComponent } from '@app/components/layout/workflow-runner/workflow-runner.component';
 import { isPackagedApp } from '@app/utils/utils';
 import { FmeClientService } from '@services/fme-client/fme-client.service';
 import { NotificationsService } from '@services/notifications/notifications.service';
@@ -50,6 +51,25 @@ export class ToolbarDropdownComponent {
             width: '60%',
             maxWidth: '900px',
             minHeight: '40vh',
+            maxHeight: '85%',
+            autoFocus: 'dialog',
+            panelClass: 'settings-dialog',
+        });
+    }
+
+    /**
+     * Open the workflow runner as a modal over the app (same host pattern as Settings).
+     * The runner opens an externally-authored workflow file, prompts for its parameters,
+     * and submits the run to the daemon, so it is gated on a live daemon connection.
+     */
+    openWorkflowRunner() {
+        if (!this.connected) {
+            return;
+        }
+        this.dialog.open(WorkflowRunnerComponent, {
+            width: '70%',
+            maxWidth: '960px',
+            minHeight: '50vh',
             maxHeight: '85%',
             autoFocus: 'dialog',
             panelClass: 'settings-dialog',

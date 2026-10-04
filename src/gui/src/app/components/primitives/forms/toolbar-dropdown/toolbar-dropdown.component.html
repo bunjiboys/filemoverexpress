@@ -5,6 +5,8 @@
 <mat-menu id="settings" #settingsMenu="matMenu" class="settings" style="width: 400px;">
     <button mat-menu-item (click)="openSettings()" [disabled]="!connected || !allowUiConfiguration">Settings</button>
 
+    <button mat-menu-item (click)="openWorkflowRunner()" [disabled]="!connected">Run a workflow...</button>
+
     <mat-divider></mat-divider>
 
     <button mat-menu-item (click)="generateSupportFile()" [disabled]="!connected">Generate Support Package</button>

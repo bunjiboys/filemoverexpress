@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { MatDialogModule } from '@angular/material/dialog';
 import { MatDividerModule } from '@angular/material/divider';
@@ -10,6 +10,7 @@ import { StoreModule } from '@ngrx/store';
 import { provideMockStore } from '@ngrx/store/testing';
 import { initialTestState } from '@state/test.state';
 import { ToolbarDropdownComponent } from './toolbar-dropdown.component';
+import { WorkflowRunnerComponent } from '@app/components/layout/workflow-runner/workflow-runner.component';
 import { provideRouter } from '@angular/router';
 
 describe('ToolbarDropdownComponent', () => {
@@ -37,5 +38,21 @@ describe('ToolbarDropdownComponent', () => {
 
     it('should create', () => {
         expect(component).toBeTruthy();
+    });
+
+    it('opens the workflow runner dialog when connected', () => {
+        component.connected = true;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const open = vi.spyOn((component as any).dialog, 'open');
+        component.openWorkflowRunner();
+        expect(open).toHaveBeenCalledWith(WorkflowRunnerComponent, expect.objectContaining({panelClass: 'settings-dialog'}));
+    });
+
+    it('does not open the workflow runner when disconnected', () => {
+        component.connected = false;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const open = vi.spyOn((component as any).dialog, 'open');
+        component.openWorkflowRunner();
+        expect(open).not.toHaveBeenCalled();
     });
 });
