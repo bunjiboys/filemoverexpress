@@ -1,5 +1,11 @@
-<div class="fme-source-picker">
-    <h2 class="fme-source-picker-title">Select sources</h2>
+<h2 mat-dialog-title class="fme-source-picker-title">
+    <span>Select sources</span>
+    <button mat-icon-button aria-label="Close" mat-dialog-close class="fme-source-picker-close">
+        <mat-icon>close</mat-icon>
+    </button>
+</h2>
+
+<div mat-dialog-content class="fme-source-picker">
     <p class="fme-source-picker-hint">
         Navigate and select one or more paths. Click, shift-click a range, or cmd/ctrl-click to toggle.
     </p>
@@ -16,16 +22,16 @@
             (fileBrowserNavigate)="onNavigate($event)">
         </fme-file-browser>
     </div>
+</div>
 
-    <div class="fme-source-picker-footer">
-        <span class="fme-source-picker-count">{{ selectedCount() }} selected</span>
-        <div class="fme-source-picker-actions">
-            <button type="button" class="fme-source-picker-cancel" (click)="cancel()">Cancel</button>
-            <button type="button" class="fme-source-picker-add"
-                    [disabled]="selectedCount() === 0"
-                    (click)="addSelected()">
-                Add selected
-            </button>
-        </div>
+<div mat-dialog-actions class="fme-source-picker-footer">
+    <span class="fme-source-picker-count">{{ selectedCount() }} selected</span>
+    <div class="fme-source-picker-actions">
+        <button type="button" class="fme-source-picker-cancel" (click)="cancel()">Cancel</button>
+        <button type="button" class="fme-source-picker-add"
+                [disabled]="selectedCount() === 0"
+                (click)="addSelected()">
+            Add selected
+        </button>
     </div>
 </div>

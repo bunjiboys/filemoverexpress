@@ -1,5 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, output, signal, ViewChild } from '@angular/core';
-import { MatDialog } from '@angular/material/dialog';
+import { MatDialog, MatDialogClose, MatDialogContent, MatDialogTitle } from '@angular/material/dialog';
+import { MatIcon } from '@angular/material/icon';
+import { MatIconButton } from '@angular/material/button';
 import { WailsService } from '@services/wails/wails.service';
 import { FmeClientService } from '@services/fme-client/fme-client.service';
 import {
@@ -39,6 +41,11 @@ type FieldErrors = Record<string, string>;
     changeDetection: ChangeDetectionStrategy.Eager,
     imports: [
         WorkflowRunnerWizardComponent,
+        MatDialogTitle,
+        MatDialogContent,
+        MatDialogClose,
+        MatIcon,
+        MatIconButton,
     ],
 })
 export class WorkflowRunnerComponent {
@@ -137,7 +144,7 @@ export class WorkflowRunnerComponent {
         const data: WorkflowSourcePickerData = {initialDirectory: '/'};
         this.dialog.open<WorkflowSourcePickerModalComponent, WorkflowSourcePickerData, string[] | undefined>(
             WorkflowSourcePickerModalComponent,
-            {data, panelClass: 'fme-source-picker-panel'},
+            {data, width: '70%', maxWidth: '820px', panelClass: 'settings-dialog'},
         ).afterClosed().subscribe((paths) => {
             if (paths && paths.length > 0) {
                 this.wizard?.appendValues(parameterName, paths);

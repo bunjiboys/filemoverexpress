@@ -1,5 +1,7 @@
 import { ChangeDetectionStrategy, Component, inject, ViewChild } from '@angular/core';
-import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
+import { MAT_DIALOG_DATA, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogRef, MatDialogTitle } from '@angular/material/dialog';
+import { MatIcon } from '@angular/material/icon';
+import { MatIconButton } from '@angular/material/button';
 import { FmeClientService } from '@services/fme-client/fme-client.service';
 import { FSFolder } from '@classes/grpc';
 import {
@@ -34,6 +36,12 @@ export interface WorkflowSourcePickerData {
     changeDetection: ChangeDetectionStrategy.Eager,
     imports: [
         FileBrowserComponent,
+        MatDialogTitle,
+        MatDialogContent,
+        MatDialogActions,
+        MatDialogClose,
+        MatIcon,
+        MatIconButton,
     ],
 })
 export class WorkflowSourcePickerModalComponent {

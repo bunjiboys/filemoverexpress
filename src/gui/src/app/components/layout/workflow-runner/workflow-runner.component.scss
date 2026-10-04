@@ -2,6 +2,22 @@
 @use "../../../../styles/custom-fields";
 @use "../../../../styles/fonts";
 
+.fme-runner-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin: 0;
+    font-family: fonts.$font-family;
+    font-size: 16px;
+    font-weight: 600;
+    color: custom-fields.$regular-text-color;
+}
+
+.fme-runner-close {
+    color: custom-fields.$placeholder-text-color;
+}
+
 .fme-workflow-runner {
     display: flex;
     flex-direction: column;

@@ -1,4 +1,11 @@
-<div class="fme-workflow-runner">
+<h2 mat-dialog-title class="fme-runner-title">
+    <span>Run a workflow</span>
+    <button mat-icon-button aria-label="Close" mat-dialog-close class="fme-runner-close">
+        <mat-icon>close</mat-icon>
+    </button>
+</h2>
+
+<div mat-dialog-content class="fme-workflow-runner">
     <div class="fme-runner-toolbar">
         <button type="button" class="fme-open-workflow" (click)="openWorkflow()">Open workflow file...</button>
     </div>
