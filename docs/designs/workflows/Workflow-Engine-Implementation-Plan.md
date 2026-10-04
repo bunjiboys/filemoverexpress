@@ -1,6 +1,10 @@
 # `workflow` — Implementation Plan
 
-Status: Plan / awaiting approval. No code written yet. This plans the daemon-side
+Status: Implemented. Engine phases A–H, the `RunWorkflow`/`ValidateWorkflow`
+service handlers, the four run-lifecycle RPCs with the Option B (`JobCreateEvent`
+subscription) job-lifecycle adapter, and startup reconciliation are all shipped on
+`feat/workflow-builder-scaffold`; the Go and TypeScript clients are regenerated
+against the workflow proto surface. This planned the daemon-side
 engine specified in `docs/designs/workflows/Workflow-File-Format.md` (the "New surface area" section):
 a new Go package `src/cli/workflow/` that parses, validates, schedules, and
 executes a workflow document in-process. It is the blocker for the service handlers
@@ -24,7 +28,9 @@ registry with the four v1 executors. It does **not** cover:
 
 - The service handlers (`RunWorkflow`/`ValidateWorkflow` in `src/cli/service/`) — a
   separate, later step that calls this package.
-- The CLI command (`fme workflow …`) — later.
+- The CLI command (`fme workflow …`) — **deferred.** Workflows are invoked through
+  the GUI over the RPC surface (`RunWorkflow`/`ValidateWorkflow` + the lifecycle
+  RPCs); a headless CLI command is not planned for this iteration.
 - The GUI runner — separate surface (`docs/designs/workflows/Workflow-Runner-GUI.md`).
 
 Those are downstream and get their own plans. Keeping this plan to the engine keeps the
