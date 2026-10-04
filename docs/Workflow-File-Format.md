@@ -486,6 +486,16 @@ submit a document; progress is observed over the existing event stream, so steps
 emit the current `JobProgressEvent` / `JobCompleteEvent` tagged with the workflow
 run id and step id.
 
+Concretely, this run/step tagging is carried on the runtime `Job` and its creation
+event rather than invented per workflow: `fme.v1.Job` and `fme.v1.JobCreateEvent`
+(see `src/protobuf/fme/v1/job.proto`) each carry optional `workflow_run_id` and
+`workflow_step_id` fields. The daemon's workflow engine populates them when it
+creates a job as a step of a run; they are **empty** for a standalone job submitted
+outside a workflow, and they are **not** part of the `Job` step's `with` / the
+internal `JobConfig` (the step is in the workflow by construction, so provenance is
+engine-populated, never author-supplied). `workflow_step_id` is the design-time step
+`id`, distinct from the runtime `job_id`.
+
 ### CLI
 
 ```

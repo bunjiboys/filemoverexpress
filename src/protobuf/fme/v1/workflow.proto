@@ -1,0 +1,121 @@
+syntax = "proto3";
+
+package fme.v1;
+
+option go_package = "github.com/awslabs/filemoverexpress/protobuf";
+
+// Workflow runner RPC surface (design: docs/Workflow-Runner-GUI.md). The GUI opens an
+// externally-authored workflow file, prompts the user for its declared
+// spec.parameters, and submits the raw document plus the collected parameter values to
+// the daemon. The daemon owns everything else: it parses the document, resolves the
+// ${params.*} references, validates (schema, DAG acyclicity, id uniqueness, profile
+// existence), schedules, and executes. The GUI never resolves parameters locally.
+//
+// Progress is observed over the EXISTING event stream (ListEvents) and job surface
+// (ListJobs / ListTasksForJob*): a workflow's steps emit the current JobProgressEvent /
+// JobCompleteEvent tagged with the run id, so no new progress message is defined here.
+
+// How to parse the raw document text in a request. YAML is accepted as input; JSON is
+// the canonical form (format doc, decision 1). The daemon parses YAML to JSON and
+// validates one schema for both.
+enum WorkflowFormat {
+    WORKFLOW_FORMAT_UNSPECIFIED = 0;
+    WORKFLOW_FORMAT_YAML = 1;
+    WORKFLOW_FORMAT_JSON = 2;
+}
+
+// A single parameter value supplied by the user for a run. Carried as a string and
+// coerced to the parameter's declared type (string/int/float/bool/enum) by the daemon
+// during resolution, mirroring the CLI's `--param k=v` form. Keeping coercion
+// daemon-side means there is exactly one place that interprets parameter types.
+//
+// A map<string, string> would be the terser encoding; a repeated message is used
+// instead so a value can later carry provenance (was it the file default or a user
+// override) without a breaking change, and so an explicitly-empty string value is
+// distinguishable in tooling.
+message WorkflowParamValue {
+    // The declared parameter name (matches ^[A-Za-z_][A-Za-z0-9_]*$).
+    string name = 1;
+    // The value as a string, coerced daemon-side to the parameter's declared type.
+    // For a bool parameter this is "true" / "false".
+    string value = 2;
+}
+
+// One validation failure, returned by ValidateWorkflow (and by a rejected RunWorkflow)
+// so the GUI can point the user at the offending field or step. These are produced by
+// the daemon's validator, which is authoritative; the GUI's own pre-flight checks are
+// UX only.
+message WorkflowValidationError {
+    // Which category this error belongs to, so the GUI can route a parameter error to
+    // its form field versus a document-level error to a banner.
+    WorkflowValidationErrorKind kind = 1;
+    // The declared parameter name, when kind == PARAMETER; empty otherwise.
+    string parameter = 2;
+    // The step id, when the error concerns a specific step (dangling dependsOn,
+    // missing transfer profile on a step); empty otherwise.
+    string step_id = 3;
+    // Human-readable message describing the failure.
+    string message = 4;
+}
+
+enum WorkflowValidationErrorKind {
+    WORKFLOW_VALIDATION_ERROR_KIND_UNSPECIFIED = 0;
+    // A declared parameter was missing/required, out of range, failed its pattern, or
+    // was not a member of its enum values.
+    WORKFLOW_VALIDATION_ERROR_KIND_PARAMETER = 1;
+    // The document failed JSON Schema validation (shape, unknown field in strict mode,
+    // bad enum/type in a step payload).
+    WORKFLOW_VALIDATION_ERROR_KIND_SCHEMA = 2;
+    // The dependency graph is invalid: a cycle, a dangling dependsOn id, or a
+    // duplicate step id.
+    WORKFLOW_VALIDATION_ERROR_KIND_GRAPH = 3;
+    // A referenced transfer profile does not exist on the daemon (preflight).
+    WORKFLOW_VALIDATION_ERROR_KIND_PROFILE = 4;
+    // The document's apiVersion is outside the daemon's supported range.
+    WORKFLOW_VALIDATION_ERROR_KIND_VERSION = 5;
+}
+
+// Submit a workflow for execution. The daemon resolves parameters, validates, and runs
+// the whole document as one unit; it returns immediately with a run handle, and
+// progress follows on the event stream.
+message RunWorkflowRequest {
+    // The raw workflow file text, exactly as authored (not pre-resolved by the GUI).
+    string document = 1;
+    // How to parse `document`.
+    WorkflowFormat format = 2;
+    // The user-supplied parameter values (file defaults, as edited/overridden in the
+    // prompt). A parameter the user left at its file default is still sent with that
+    // default's value; an optional parameter with no value may be omitted.
+    repeated WorkflowParamValue params = 3;
+}
+
+message RunWorkflowResponse {
+    // Whether the run was accepted and started. False means it was rejected before any
+    // step ran (see `errors`); no run was created.
+    bool accepted = 1;
+    // The run handle, when accepted. Used to scope ListJobs / ListEvents /
+    // ListTasksForJob* to this run's steps. Empty when not accepted.
+    string run_id = 2;
+    // Fail-fast validation errors when the run was rejected (accepted == false). Empty
+    // on acceptance.
+    repeated WorkflowValidationError errors = 3;
+}
+
+// Validate a workflow without executing it (format doc: `fme workflow validate`). Runs
+// the same schema + reference + resolve-with-these-params checks the daemon applies
+// before a run, so the GUI can offer a "Validate" action distinct from "Run".
+message ValidateWorkflowRequest {
+    string document = 1;
+    WorkflowFormat format = 2;
+    // The parameter values to validate against. On a parameterized file this is
+    // required to validate concretely; absent values fall back to declared defaults,
+    // and a still-unresolved required parameter is reported as a PARAMETER error.
+    repeated WorkflowParamValue params = 3;
+}
+
+message ValidateWorkflowResponse {
+    // True when the document (resolved with `params`) would be accepted for a run.
+    bool valid = 1;
+    // Every validation failure found; empty when valid.
+    repeated WorkflowValidationError errors = 2;
+}

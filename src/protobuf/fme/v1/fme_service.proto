@@ -10,6 +10,7 @@ import "fme/v1/metadata.proto";
 import "fme/v1/remote_daemon.proto";
 import "fme/v1/shared.proto";
 import "fme/v1/supportfile.proto";
+import "fme/v1/workflow.proto";
 import "s3_shared/v1/s3.proto";
 
 option go_package = "github.com/awslabs/filemoverexpress/protobuf";
@@ -44,6 +45,8 @@ service FmeService {
     rpc InitiateOIDCLogin (fme.v1.OIDCLoginRequest) returns (fme.v1.OIDCLoginResponse) {}
     rpc GetOIDCStatus (fme.v1.OIDCStatusRequest) returns (fme.v1.OIDCStatusResponse) {}
     rpc LogoutOIDC (fme.v1.OIDCLogoutRequest) returns (fme.v1.OIDCLogoutResponse) {}
+    rpc RunWorkflow (fme.v1.RunWorkflowRequest) returns (fme.v1.RunWorkflowResponse) {}
+    rpc ValidateWorkflow (fme.v1.ValidateWorkflowRequest) returns (fme.v1.ValidateWorkflowResponse) {}
 }
 
 // ListEventsRequest and Response must be in the main file, as it uses values from each sub-file and would otherwise

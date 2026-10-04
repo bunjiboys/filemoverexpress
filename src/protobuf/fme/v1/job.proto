@@ -28,6 +28,19 @@ message Job {
     // Whether the job was submitted with "overwrite existing files" on (the old
     // "force" flag): existing destination objects are re-uploaded instead of skipped.
     bool force = 19;
+    // Workflow provenance (design: docs/Workflow-Runner-GUI.md,
+    // docs/Workflow-File-Format.md). Set by the daemon's workflow engine when this job
+    // was created as a step of a workflow run; EMPTY for a standalone job submitted
+    // outside a workflow. They let the GUI group and filter jobs by run and trace a
+    // transfer back to the step that produced it. Not author-supplied and NOT part of
+    // the Job step's `with` / JobConfig: the engine populates them, since the step is in
+    // the workflow by construction.
+    //
+    // The run this job belongs to (the run_id from RunWorkflowResponse).
+    string workflow_run_id = 20;
+    // The design-time step id within that workflow (the step's `id`, distinct from
+    // job_id, which is the runtime id).
+    string workflow_step_id = 21;
 }
 
 message Task {
@@ -177,6 +190,11 @@ message JobCreateEvent {
     string status = 7;
     // Whether the job overwrites existing destination files (old "force" flag).
     bool force = 8;
+    // Workflow provenance, mirroring Job.workflow_run_id / Job.workflow_step_id so the
+    // GUI learns a job's originating workflow as it is created. Empty for a standalone
+    // job. Daemon-populated; see Job above.
+    string workflow_run_id = 9;
+    string workflow_step_id = 10;
 }
 
 message JobStatusChangeEvent {

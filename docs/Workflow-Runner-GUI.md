@@ -202,7 +202,13 @@ is surfaced after submit.
 4. **Submit** — the GUI calls `RunWorkflow` with the document text, format, and the
    `params` map, and receives a `run_id`.
 5. **Observe** — the GUI switches to its job/events view scoped to the `run_id`, showing
-   each step's progress through the existing `ListJobs`/`ListEvents` surface.
+   each step's progress through the existing `ListJobs`/`ListEvents` surface. The jobs a
+   run produces carry their provenance back to it: `fme.v1.Job` and
+   `fme.v1.JobCreateEvent` (see `src/protobuf/fme/v1/job.proto`) each expose optional
+   `workflow_run_id` and `workflow_step_id` fields, daemon-populated when a job is
+   created as a step of a run and empty for a standalone job. The GUI filters jobs to
+   this run by `workflow_run_id` and labels each with its `workflow_step_id`, so a run's
+   steps show as a cohesive unit and a failed transfer traces back to its step.
 
 A daemon-side rejection at step 4 returns the user to the prompt (parameter errors) or
 shows a document-level error (graph/profile errors), without starting a run.
