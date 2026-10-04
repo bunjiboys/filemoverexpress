@@ -222,3 +222,35 @@ func TestShouldQuit(t *testing.T) {
 			"subsequent quit attempt should be allowed after frontend was notified")
 	})
 }
+
+// TestReadTextFile verifies ReadTextFile returns a small file's contents, errors on a
+// missing path, and refuses a file over the size cap.
+func TestReadTextFile(t *testing.T) {
+	app := &FMEApp{}
+
+	t.Run("reads a small text file's contents", func(t *testing.T) {
+		dir := t.TempDir()
+		path := filepath.Join(dir, "workflow.yaml")
+		require.NoError(t, os.WriteFile(path, []byte("apiVersion: fme.dev/workflow/v1\n"), 0o600))
+
+		got, err := app.ReadTextFile(path)
+
+		require.NoError(t, err)
+		assert.Equal(t, "apiVersion: fme.dev/workflow/v1\n", got)
+	})
+
+	t.Run("errors on a missing file", func(t *testing.T) {
+		_, err := app.ReadTextFile(filepath.Join(t.TempDir(), "nope.yaml"))
+		assert.Error(t, err)
+	})
+
+	t.Run("refuses a file over the size cap", func(t *testing.T) {
+		dir := t.TempDir()
+		path := filepath.Join(dir, "huge.yaml")
+		require.NoError(t, os.WriteFile(path, make([]byte, maxTextFileReadBytes+1), 0o600))
+
+		_, err := app.ReadTextFile(path)
+
+		assert.Error(t, err)
+	})
+}

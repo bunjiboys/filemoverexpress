@@ -1,0 +1,65 @@
+@use "../../../../styles/variables";
+@use "../../../../styles/custom-fields";
+@use "../../../../styles/fonts";
+
+.fme-workflow-runner {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    font-family: fonts.$font-family;
+    color: custom-fields.$regular-text-color;
+}
+
+.fme-runner-toolbar {
+    display: flex;
+    gap: 8px;
+}
+
+.fme-open-workflow {
+    padding: 6px 14px;
+    border-radius: custom-fields.$form-field-border-radius;
+    border: solid 1px variables.$active;
+    background: variables.$active;
+    color: variables.$white;
+    font-family: fonts.$font-family;
+    font-size: 12px;
+    cursor: pointer;
+
+    &:hover {
+        background: variables.$blue-400;
+    }
+}
+
+.fme-runner-doc-error,
+.fme-runner-field-errors {
+    margin: 0;
+    padding: 8px 12px;
+    border: solid 1px variables.$red-500;
+    border-radius: custom-fields.$form-field-border-radius;
+    background: variables.$red-900;
+    color: variables.$grey-100;
+    font-size: 12px;
+}
+
+.fme-runner-field-errors {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.fme-runner-valid {
+    margin: 0;
+    padding: 8px 12px;
+    border: solid 1px variables.$green-500;
+    border-radius: custom-fields.$form-field-border-radius;
+    background: variables.$green-900;
+    color: variables.$grey-100;
+    font-size: 12px;
+}
+
+.fme-runner-empty {
+    margin: 0;
+    font-size: 12px;
+    color: custom-fields.$placeholder-text-color;
+}

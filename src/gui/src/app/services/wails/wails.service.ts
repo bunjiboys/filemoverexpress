@@ -9,6 +9,7 @@ import {
     GenerateJsonReport,
     OpenDirectory,
     OpenFile,
+    ReadTextFile,
     SaveFile,
     StartDaemon,
     SystemOpen,
@@ -114,6 +115,22 @@ export class WailsService {
     openFile(title: string, startPath: string, filterName = '', filterPattern = ''): Observable<string> {
         try {
             return from(OpenFile(title, startPath, filterName, filterPattern));
+        } catch (error) {
+            console.debug(`Failed to call wails: ${error}`);
+            return EMPTY;
+        }
+    }
+
+    /**
+     * Reads the UTF-8 text contents of a file at the given absolute path (used by the
+     * workflow runner to load a workflow file the user picked via openFile). Emits the
+     * file text, or surfaces a read error (missing file, too large) as an Observable
+     * error to the subscriber. Only meaningful for a local daemon -- it reads the GUI
+     * host's filesystem.
+     */
+    readTextFile(path: string): Observable<string> {
+        try {
+            return from(ReadTextFile(path));
         } catch (error) {
             console.debug(`Failed to call wails: ${error}`);
             return EMPTY;

@@ -1,0 +1,31 @@
+<div class="fme-workflow-runner">
+    <div class="fme-runner-toolbar">
+        <button type="button" class="fme-open-workflow" (click)="openWorkflow()">Open workflow file...</button>
+    </div>
+
+    @if (documentError(); as err) {
+        <p class="fme-runner-doc-error" role="alert">{{ err }}</p>
+    }
+
+    @if (validationPassed()) {
+        <p class="fme-runner-valid" role="status">Validation passed.</p>
+    }
+
+    @if (fieldErrorList().length > 0) {
+        <ul class="fme-runner-field-errors" role="alert">
+            @for (fe of fieldErrorList(); track fe.name) {
+                <li>{{ fe.name }}: {{ fe.message }}</li>
+            }
+        </ul>
+    }
+
+    @if (document(); as doc) {
+        <fme-workflow-runner-wizard
+            [document]="doc"
+            (runRequested)="onRun($event)"
+            (validateRequested)="onValidate($event)">
+        </fme-workflow-runner-wizard>
+    } @else if (!documentError()) {
+        <p class="fme-runner-empty">Open an externally-authored workflow file to run it.</p>
+    }
+</div>

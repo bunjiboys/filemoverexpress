@@ -9,6 +9,7 @@ export const StartDaemon = () => Promise.resolve();
 export const SaveFile = (__defaultFilename: string, __base64Data: string) => Promise.resolve('');
 export const OpenDirectory = (__title: string, __startPath: string) => Promise.resolve('');
 export const OpenFile = (__title: string, __startPath: string, __filterName: string, __filterPattern: string) => Promise.resolve('');
+export const ReadTextFile = (__path: string) => Promise.resolve('');
 export const SystemOpen = (__path: string) => Promise.resolve();
 export const SystemShowItemInFolder = (__path: string) => Promise.resolve();
 export const GenerateExcelReport = (__data: unknown) => Promise.resolve('');

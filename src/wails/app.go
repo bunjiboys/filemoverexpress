@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/base64"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -155,6 +156,32 @@ func (a *FMEApp) OpenFile(title string, defaultPath string, filterName string, f
 		dialog = dialog.AddFilter(filterName, filterPattern)
 	}
 	return dialog.PromptForSingleSelection()
+}
+
+// maxTextFileReadBytes caps ReadTextFile so a mis-selected huge file cannot be
+// slurped into the webview. Workflow files are small (a few KB); 5 MiB is a
+// generous ceiling that still rejects an accidental multi-GB pick.
+const maxTextFileReadBytes = 5 << 20
+
+// ReadTextFile reads a UTF-8 text file at the given absolute path and returns its
+// contents. It is used by the workflow runner to load an externally-authored
+// workflow file the user picked via OpenFile. It refuses a file larger than
+// maxTextFileReadBytes rather than reading it into memory. Like OpenFile, it reads
+// the GUI host's filesystem and is only meaningful for a local daemon; callers gate
+// the open affordance on a local connection.
+func (a *FMEApp) ReadTextFile(path string) (string, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		return "", err
+	}
+	if info.Size() > maxTextFileReadBytes {
+		return "", fmt.Errorf("file is too large to open (%d bytes, limit %d)", info.Size(), maxTextFileReadBytes)
+	}
+	data, err := os.ReadFile(filepath.Clean(path))
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
 }
 
 // ExternalLink opens the given URL in the system's default web browser.
