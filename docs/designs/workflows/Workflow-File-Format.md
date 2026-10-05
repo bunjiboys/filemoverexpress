@@ -304,7 +304,7 @@ A workflow may declare typed, constrained inputs and reference them with
 spec:
   parameters:
     - name: day
-      type: string          # string | int | float | bool | enum | string_array
+      type: string          # string | int | float | bool | enum | string_array | transfer_profile
       required: true
     - name: show
       type: string
@@ -313,14 +313,18 @@ spec:
       type: enum
       values: [prod, staging]
       default: prod
+    - name: remote
+      type: transfer_profile
+      required: true
 ```
 
 Rules:
 
 - **Typed and constrained**: `type` is one of `string`, `int`, `float`, `bool`,
-  `enum` (see the table below). `required` and `default` are supported on every
-  type. Typing is what preserves the "publishable schema" guarantee: the schema
-  validates the template, and the validator validates the resolved file.
+  `enum`, `string_array`, `transfer_profile` (see the table below). `required` and
+  `default` are supported on every type. Typing is what preserves the "publishable
+  schema" guarantee: the schema validates the template, and the validator validates
+  the resolved file.
 - **Substitution scope**: `${params.name}` is allowed only inside `with` scalar
   and string values (including inside `spec.defaults`, which is merged into `with`).
   It is forbidden in `type`, `id`, and `dependsOn`.
@@ -342,6 +346,7 @@ Rules:
 | `bool` | `true` or `false` | none | Renders `true` / `false` when interpolated into a string; stays a bool in a bool `with` field (for example `force: ${params.force}`). |
 | `enum` | one of a declared set of strings | `values` (required, non-empty list of the allowed strings) | Substituted as-is; the resolved value must be a member of `values`. |
 | `string_array` | a list of strings | `pattern` (RE2 regex applied to EVERY element; each element must fully match) | A whole-value reference (`sources: ${params.src}`) resolves to the string array itself, so it fills a list `with` field such as `sources` directly. An embedded reference renders the array to its string form. |
+| `transfer_profile` | the name of a TransferProfile configured on the executing daemon | none (the allowed set is the daemon's live profiles, not declared on the parameter) | Substituted as-is (the value IS the profile name); the resolved value is validated against the daemon's configured profiles at validate time, and the runner GUI renders it as a transfer-profile dropdown instead of a free-text field. |
 
 Every type also accepts `required` (bool, default false) and `default` (a value of
 the parameter's own type). A parameter that is neither `required` nor given a
@@ -351,9 +356,9 @@ value before any step runs, so an out-of-range `int`, a `pattern` miss, or an
 `enum` value outside `values` fails `fme workflow validate` without executing
 anything.
 
-Resolving to empty is only meaningful for `string` and `enum`, which can
-substitute an empty string. A `bool`, `int`, or `float` parameter used in a typed
-`with` position (such as `force: ${params.force}`) has no empty form, so such a
+Resolving to empty is only meaningful for `string`, `enum`, and `transfer_profile`,
+which can substitute an empty string. A `bool`, `int`, or `float` parameter used in a
+typed `with` position (such as `force: ${params.force}`) has no empty form, so such a
 parameter must be either `required` or given a `default`; a validate-time error is
 raised if it is neither.
 
@@ -370,6 +375,20 @@ the array to its string form. The runner GUI's multi-select Browse affordance (s
 `docs/designs/workflows/Workflow-Runner-GUI.md`) is the primary editor for a
 `string_array` of source paths. Only `string_array` is defined in v1; other element
 types (int/float/bool/enum arrays) are deliberately not implemented until a workflow
+
+A `transfer_profile` parameter resolves to the name of a TransferProfile configured
+on the executing daemon. It coerces and substitutes exactly like a `string` (the
+value IS the profile name, and it has an empty form), so it fills a step's
+`transferProfile` field directly (`transferProfile: ${params.remote}`). What
+distinguishes it is validation and authoring: the resolved value is checked against
+the daemon's live profile set at validate time, and an unknown profile is reported as
+a PARAMETER error naming the parameter (so a client can route it to that parameter's
+form field), separate from the step-level PROFILE error raised when a step's own
+`transferProfile` field names a missing profile. In the runner GUI it renders a
+transfer-profile dropdown populated from the connected daemon's profiles rather than a
+free-text field or a hardcoded `enum` list of profile names, so the authored template
+stays portable (it names no fixed set) while the operator still picks from the real
+profiles on their daemon.
 needs them.
 
 Not in v1, by design, so a generator author knows these are intentional omissions
