@@ -11,20 +11,18 @@
         @if (overridden()) {
             <span class="fme-override-badge">
                 overridden
-                <button type="button" class="fme-revert" (click)="revert()">revert</button>
+                <button type="button" mat-button class="fme-revert" (click)="revert()">revert</button>
             </span>
         }
     </div>
 
     @switch (parameter().type) {
         @case ('bool') {
-            <label class="fme-scalar-toggle-label">
-                <input class="fme-scalar-toggle" type="checkbox"
-                       [attr.aria-label]="parameter().name"
-                       [checked]="checked()"
-                       (change)="onToggle($any($event.target).checked)" />
-                <span>{{ checked() ? 'true' : 'false' }}</span>
-            </label>
+            <mat-slide-toggle class="fme-scalar-toggle"
+                              [checked]="checked()"
+                              (change)="onToggle($event.checked)">
+                {{ checked() ? 'true' : 'false' }}
+            </mat-slide-toggle>
         }
         @case ('enum') {
             <mat-form-field class="fme-scalar-enum" color="accent" appearance="outline" subscriptSizing="dynamic">
@@ -41,25 +39,28 @@
             </mat-form-field>
         }
         @case ('int') {
-            <input class="fme-scalar-input" type="number" [step]="numberStep()"
-                   [class.fme-invalid]="error() !== null"
-                   [attr.aria-label]="parameter().name"
-                   [value]="value()"
-                   (input)="onText($any($event.target).value)" />
+            <mat-form-field class="fme-scalar-field-input" color="accent" appearance="outline" subscriptSizing="dynamic">
+                <input matInput type="number" [step]="numberStep()"
+                       [attr.aria-label]="parameter().name"
+                       [value]="value()"
+                       (input)="onText($any($event.target).value)" />
+            </mat-form-field>
         }
         @case ('float') {
-            <input class="fme-scalar-input" type="number" [step]="numberStep()"
-                   [class.fme-invalid]="error() !== null"
-                   [attr.aria-label]="parameter().name"
-                   [value]="value()"
-                   (input)="onText($any($event.target).value)" />
+            <mat-form-field class="fme-scalar-field-input" color="accent" appearance="outline" subscriptSizing="dynamic">
+                <input matInput type="number" [step]="numberStep()"
+                       [attr.aria-label]="parameter().name"
+                       [value]="value()"
+                       (input)="onText($any($event.target).value)" />
+            </mat-form-field>
         }
         @default {
-            <input class="fme-scalar-input" type="text"
-                   [class.fme-invalid]="error() !== null"
-                   [attr.aria-label]="parameter().name"
-                   [value]="value()"
-                   (input)="onText($any($event.target).value)" />
+            <mat-form-field class="fme-scalar-field-input" color="accent" appearance="outline" subscriptSizing="dynamic">
+                <input matInput type="text"
+                       [attr.aria-label]="parameter().name"
+                       [value]="value()"
+                       (input)="onText($any($event.target).value)" />
+            </mat-form-field>
         }
     }
 

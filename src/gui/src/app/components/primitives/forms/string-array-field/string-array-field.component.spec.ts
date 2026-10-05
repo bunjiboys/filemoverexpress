@@ -52,8 +52,9 @@ describe('StringArrayFieldComponent', () => {
         const changed = vi.fn();
         component.valuesChange.subscribe(changed);
 
-        // Remove the middle chip.
-        fixture.nativeElement.querySelectorAll('.fme-chip-remove')[1].click();
+        // Each chip has a matChipRemove button; its (removed) output calls removeAt(i).
+        expect(fixture.nativeElement.querySelectorAll('button[matChipRemove]').length).toBe(3);
+        component.removeAt(1);
 
         expect(changed).toHaveBeenCalledWith(['/a', '/c']);
     });

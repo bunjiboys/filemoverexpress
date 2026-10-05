@@ -67,8 +67,8 @@
         </div>
 
         <div class="fme-wizard-actions">
-            <button type="button" class="fme-wizard-validate" (click)="validate()">Validate</button>
-            <button type="button" class="fme-wizard-next" [disabled]="!ready()" (click)="next()">Next: Confirm</button>
+            <button type="button" mat-stroked-button class="fme-wizard-validate" (click)="validate()">Validate</button>
+            <button type="button" mat-flat-button color="primary" class="fme-wizard-next" [disabled]="!ready()" (click)="next()">Next: Confirm</button>
         </div>
     } @else {
         <div class="fme-wizard-body fme-confirm">
@@ -100,10 +100,10 @@
 
         <div class="fme-wizard-actions">
             @if (parameters().length > 0) {
-                <button type="button" class="fme-wizard-back" (click)="back()">Back</button>
+                <button type="button" mat-stroked-button class="fme-wizard-back" (click)="back()">Back</button>
             }
-            <button type="button" class="fme-wizard-validate" (click)="validate()">Validate</button>
-            <button type="button" class="fme-wizard-run" (click)="run()">Run</button>
+            <button type="button" mat-stroked-button class="fme-wizard-validate" (click)="validate()">Validate</button>
+            <button type="button" mat-flat-button color="primary" class="fme-wizard-run" (click)="run()">Run</button>
         </div>
     }
 </div>

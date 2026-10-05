@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, output, signal, ViewChild } from '@angular/core';
 import { MatDialog, MatDialogClose, MatDialogContent, MatDialogTitle } from '@angular/material/dialog';
 import { MatIcon } from '@angular/material/icon';
-import { MatIconButton } from '@angular/material/button';
+import { MatIconButton, MatButton } from '@angular/material/button';
 import { WailsService } from '@services/wails/wails.service';
 import { FmeClientService } from '@services/fme-client/fme-client.service';
 import {
@@ -46,6 +46,7 @@ type FieldErrors = Record<string, string>;
         MatDialogClose,
         MatIcon,
         MatIconButton,
+        MatButton,
     ],
 })
 export class WorkflowRunnerComponent {

@@ -7,7 +7,7 @@
 
 <div mat-dialog-content class="fme-workflow-runner">
     <div class="fme-runner-toolbar">
-        <button type="button" class="fme-open-workflow" (click)="openWorkflow()">Open workflow file...</button>
+        <button type="button" mat-flat-button color="primary" class="fme-open-workflow" (click)="openWorkflow()">Open workflow file...</button>
     </div>
 
     @if (documentErrors().length > 0) {

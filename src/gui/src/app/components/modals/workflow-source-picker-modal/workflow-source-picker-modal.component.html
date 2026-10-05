@@ -49,8 +49,8 @@
 <div mat-dialog-actions class="fme-source-picker-footer">
     <span class="fme-source-picker-count">{{ selectedCount() }} selected</span>
     <div class="fme-source-picker-actions">
-        <button type="button" class="fme-source-picker-cancel" (click)="cancel()">Cancel</button>
-        <button type="button" class="fme-source-picker-add"
+        <button type="button" mat-stroked-button class="fme-source-picker-cancel" (click)="cancel()">Cancel</button>
+        <button type="button" mat-flat-button color="primary" class="fme-source-picker-add"
                 [disabled]="selectedCount() === 0"
                 (click)="addSelected()">
             Add selected

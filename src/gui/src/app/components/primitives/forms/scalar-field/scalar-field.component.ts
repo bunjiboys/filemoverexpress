@@ -1,6 +1,9 @@
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatButton } from '@angular/material/button';
 import { MatFormField } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
+import { MatSlideToggle } from '@angular/material/slide-toggle';
 import { MatOption, MatSelect } from '@angular/material/select';
 import {
     initialFieldValue,
@@ -35,7 +38,10 @@ import {
     changeDetection: ChangeDetectionStrategy.Eager,
     imports: [
         FormsModule,
+        MatButton,
         MatFormField,
+        MatInput,
+        MatSlideToggle,
         MatSelect,
         MatOption,
     ],

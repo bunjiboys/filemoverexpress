@@ -40,28 +40,28 @@ describe('ScalarFieldComponent', () => {
     describe('control selection by type', () => {
         it('renders a text input for a string', () => {
             build(scalarParam({type: 'string'}));
-            const input = fixture.nativeElement.querySelector('input.fme-scalar-input');
+            const input = fixture.nativeElement.querySelector('mat-form-field.fme-scalar-field-input input[matInput]');
             expect(input).toBeTruthy();
             expect(input.getAttribute('type')).toBe('text');
         });
 
         it('renders a number input for an int', () => {
             build(scalarParam({type: 'int', default: 0}), '0');
-            const input = fixture.nativeElement.querySelector('input.fme-scalar-input');
+            const input = fixture.nativeElement.querySelector('mat-form-field.fme-scalar-field-input input[matInput]');
             expect(input.getAttribute('type')).toBe('number');
             expect(input.getAttribute('step')).toBe('1');
         });
 
         it('renders a number input with any step for a float', () => {
             build(scalarParam({type: 'float', default: 0}), '0');
-            const input = fixture.nativeElement.querySelector('input.fme-scalar-input');
+            const input = fixture.nativeElement.querySelector('mat-form-field.fme-scalar-field-input input[matInput]');
             expect(input.getAttribute('type')).toBe('number');
             expect(input.getAttribute('step')).toBe('any');
         });
 
-        it('renders a checkbox for a bool', () => {
+        it('renders a mat-slide-toggle for a bool', () => {
             build(scalarParam({type: 'bool', default: false}), 'false');
-            expect(fixture.nativeElement.querySelector('input.fme-scalar-toggle[type="checkbox"]')).toBeTruthy();
+            expect(fixture.nativeElement.querySelector('mat-slide-toggle.fme-scalar-toggle')).toBeTruthy();
         });
 
         it('renders a mat-select for an enum', () => {

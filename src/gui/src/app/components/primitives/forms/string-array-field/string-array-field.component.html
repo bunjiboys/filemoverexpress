@@ -11,32 +11,31 @@
         @if (overridden()) {
             <span class="fme-override-badge">
                 overridden
-                <button type="button" class="fme-revert" (click)="revert()">revert</button>
+                <button type="button" mat-button class="fme-revert" (click)="revert()">revert</button>
             </span>
         }
     </div>
 
     <div class="fme-field-row">
-        <div class="fme-chip-box" [class.fme-invalid]="error() !== null">
-            @for (value of values(); track value; let i = $index) {
-                <span class="fme-chip" [title]="value">
-                    <span class="fme-chip-label">{{ leafName(value) }}</span>
-                    <button type="button" class="fme-chip-remove"
-                            [attr.aria-label]="'Remove ' + value" matTooltip="Remove"
-                            (click)="removeAt(i)">
-                        <mat-icon>close</mat-icon>
-                    </button>
-                </span>
-            }
+        <mat-form-field class="fme-chip-field" color="accent" appearance="outline" subscriptSizing="dynamic">
+            <mat-chip-grid #chipGrid [attr.aria-label]="parameter().name">
+                @for (value of values(); track value; let i = $index) {
+                    <mat-chip-row class="fme-chip" [title]="value" (removed)="removeAt(i)">
+                        {{ leafName(value) }}
+                        <button matChipRemove [attr.aria-label]="'Remove ' + value">
+                            <mat-icon>close</mat-icon>
+                        </button>
+                    </mat-chip-row>
+                }
+                <input placeholder="Type a path and press Enter"
+                       [attr.aria-label]="'Add a path for ' + parameter().name"
+                       [(ngModel)]="entry"
+                       [matChipInputFor]="chipGrid"
+                       (matChipInputTokenEnd)="addEntry()" />
+            </mat-chip-grid>
+        </mat-form-field>
 
-            <input class="fme-chip-entry" type="text"
-                   [attr.aria-label]="'Add a path for ' + parameter().name"
-                   placeholder="Type a path and press Enter"
-                   [(ngModel)]="entry"
-                   (keydown.enter)="addEntry()" />
-        </div>
-
-        <button type="button" class="fme-browse-trigger" (click)="browse()">
+        <button type="button" mat-stroked-button class="fme-browse-trigger" (click)="browse()">
             <mat-icon>folder_open</mat-icon>
             <span>Browse</span>
         </button>

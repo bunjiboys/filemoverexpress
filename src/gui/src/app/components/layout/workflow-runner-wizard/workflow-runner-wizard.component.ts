@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, effect, input, output, signal } from '@angular/core';
+import { MatButton } from '@angular/material/button';
 import { ScalarFieldComponent } from '@primitives/forms/scalar-field/scalar-field.component';
 import { StringArrayFieldComponent } from '@primitives/forms/string-array-field/string-array-field.component';
 import {
@@ -44,7 +45,9 @@ export interface WorkflowRunSubmission {
     styleUrls: ['./workflow-runner-wizard.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
     imports: [
-        ScalarFieldComponent, StringArrayFieldComponent,
+        ScalarFieldComponent,
+        StringArrayFieldComponent,
+        MatButton,
     ],
 })
 export class WorkflowRunnerWizardComponent {

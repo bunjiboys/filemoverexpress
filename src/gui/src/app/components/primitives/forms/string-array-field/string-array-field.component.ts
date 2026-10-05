@@ -1,7 +1,9 @@
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatButton } from '@angular/material/button';
+import { MatChipGrid, MatChipInput, MatChipRemove, MatChipRow } from '@angular/material/chips';
+import { MatFormField } from '@angular/material/form-field';
 import { MatIcon } from '@angular/material/icon';
-import { MatTooltip } from '@angular/material/tooltip';
 import {
     initialFieldValue,
     isFieldOverridden,
@@ -28,8 +30,13 @@ import { WorkflowParameter } from '@app/classes/workflow/workflow-parameter.mode
     changeDetection: ChangeDetectionStrategy.Eager,
     imports: [
         FormsModule,
+        MatButton,
+        MatChipGrid,
+        MatChipRow,
+        MatChipInput,
+        MatChipRemove,
+        MatFormField,
         MatIcon,
-        MatTooltip,
     ],
 })
 export class StringArrayFieldComponent {
@@ -67,7 +74,7 @@ export class StringArrayFieldComponent {
     }
 
     /** Remove the chip at the given index and emit the remaining values. */
-    protected removeAt(index: number): void {
+    removeAt(index: number): void {
         const next = this.values().filter((_, i) => i !== index);
         this.valuesChange.emit(next);
     }

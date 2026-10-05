@@ -3,7 +3,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { map } from 'rxjs';
 import { MAT_DIALOG_DATA, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogRef, MatDialogTitle } from '@angular/material/dialog';
 import { MatIcon } from '@angular/material/icon';
-import { MatIconButton } from '@angular/material/button';
+import { MatIconButton, MatButton } from '@angular/material/button';
 import { MatFormField, MatLabel } from '@angular/material/form-field';
 import { MatOption, MatSelect } from '@angular/material/select';
 import { FmeClientService } from '@services/fme-client/fme-client.service';
@@ -47,6 +47,7 @@ export interface WorkflowSourcePickerData {
         MatDialogClose,
         MatIcon,
         MatIconButton,
+        MatButton,
         MatFormField,
         MatLabel,
         MatSelect,
