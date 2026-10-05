@@ -61,8 +61,8 @@ export class WorkflowRunnerComponent {
 
     /** The parsed workflow being run, or null before a file is opened. */
     readonly document = signal<ParsedWorkflowDocument | null>(null);
-    /** A document-level error (parse failure or non-parameter daemon error), or null. */
-    readonly documentError = signal<string | null>(null);
+    /** Document-level errors (parse failure or non-parameter daemon errors), one per entry. */
+    readonly documentErrors = signal<string[]>([]);
     /** Per-parameter daemon errors to surface on the fields. */
     readonly fieldErrors = signal<FieldErrors>({});
     /** True after an explicit Validate returned clean. */
@@ -115,7 +115,7 @@ export class WorkflowRunnerComponent {
                     }
                     this.routeErrors(res.errors);
                 },
-                error: (err: unknown) => this.failDocument(errorText(err)),
+                error: (err: unknown) => this.submitError(errorText(err)),
             });
     }
 
@@ -131,7 +131,7 @@ export class WorkflowRunnerComponent {
                     }
                     this.routeErrors(res.errors);
                 },
-                error: (err: unknown) => this.failDocument(errorText(err)),
+                error: (err: unknown) => this.submitError(errorText(err)),
             });
     }
 
@@ -164,20 +164,29 @@ export class WorkflowRunnerComponent {
             }
         }
         this.fieldErrors.set(fields);
-        this.documentError.set(docMessages.length > 0 ? docMessages.join('; ') : null);
+        this.documentErrors.set(docMessages);
     }
 
-    /** Set a document-level error and clear any open document. */
+    /** Set a document-level error and clear any open document (open/parse failures only). */
     private failDocument(message: string): void {
         this.document.set(null);
         this.fieldErrors.set({});
         this.validationPassed.set(false);
-        this.documentError.set(message);
+        this.documentErrors.set([message]);
+    }
+
+    /**
+     * Surface a submit-time error (Run/Validate RPC failure) as a document-level banner
+     * WITHOUT clearing the open document, so the user keeps their prompt and can retry.
+     */
+    private submitError(message: string): void {
+        this.validationPassed.set(false);
+        this.documentErrors.set([message]);
     }
 
     /** Clear all error + validation state. */
     private resetErrors(): void {
-        this.documentError.set(null);
+        this.documentErrors.set([]);
         this.fieldErrors.set({});
         this.validationPassed.set(false);
     }

@@ -57,7 +57,8 @@
     font-size: 12px;
 }
 
-.fme-runner-field-errors {
+.fme-runner-field-errors,
+.fme-runner-doc-error {
     list-style: none;
     display: flex;
     flex-direction: column;

@@ -68,7 +68,7 @@ describe('WorkflowRunnerComponent', () => {
             expect(openFile).toHaveBeenCalled();
             expect(readTextFile).toHaveBeenCalledWith('/wf/nightly.yaml');
             expect(component.document()?.name).toBe('nightly-media-sync');
-            expect(component.documentError()).toBeNull();
+            expect(component.documentErrors()).toEqual([]);
         });
 
         it('infers json format from a .json extension', () => {
@@ -94,15 +94,14 @@ describe('WorkflowRunnerComponent', () => {
             openFile.mockReturnValue(of('/wf/bad.json'));
             component.openWorkflow();
             expect(component.document()).toBeNull();
-            expect(component.documentError()).toContain('');
-            expect(component.documentError()).not.toBeNull();
+            expect(component.documentErrors().length).toBeGreaterThan(0);
         });
 
         it('shows a document error when the file read fails', () => {
             readTextFile.mockReturnValue(throwError(() => new Error('permission denied')));
             component.openWorkflow();
             expect(component.document()).toBeNull();
-            expect(component.documentError()).toContain('permission denied');
+            expect(component.documentErrors().join(' ')).toContain('permission denied');
         });
     });
 
@@ -136,29 +135,31 @@ describe('WorkflowRunnerComponent', () => {
             component.onRun({documentText: validYaml, format: 'yaml', params: []});
 
             expect(component.fieldErrors()['bucket']).toBe('required');
-            expect(component.documentError()).toBeNull();
+            expect(component.documentErrors()).toEqual([]);
         });
 
-        it('routes non-parameter errors to the document banner', () => {
+        it('routes non-parameter errors to the document banner, one message per entry', () => {
             runWorkflow.mockReturnValue(of({
                 accepted: false,
                 runId: '',
                 errors: [
-                    {kind: WorkflowValidationErrorKind.PROFILE, parameter: '', stepId: 'ingest', message: 'no such profile'},
+                    {kind: WorkflowValidationErrorKind.PROFILE, parameter: '', stepId: 'ingest', message: 'no such profile'}, {kind: WorkflowValidationErrorKind.GRAPH, parameter: '', stepId: '', message: 'cycle detected'},
                 ],
             }));
             component.openWorkflow();
             component.onRun({documentText: validYaml, format: 'yaml', params: []});
 
-            expect(component.documentError()).toContain('no such profile');
+            expect(component.documentErrors()).toEqual(['no such profile', 'cycle detected']);
             expect(component.fieldErrors()).toEqual({});
         });
 
-        it('shows a document error when the RPC itself errors', () => {
+        it('shows a document error and KEEPS the wizard open when the RPC itself errors', () => {
             runWorkflow.mockReturnValue(throwError(() => new Error('daemon down')));
             component.openWorkflow();
             component.onRun({documentText: validYaml, format: 'yaml', params: []});
-            expect(component.documentError()).toContain('daemon down');
+            expect(component.documentErrors().join(' ')).toContain('daemon down');
+            // The open document is preserved so the user does not lose their prompt.
+            expect(component.document()).not.toBeNull();
         });
 
         it('does not emit runStarted when the run is rejected', () => {
@@ -176,7 +177,7 @@ describe('WorkflowRunnerComponent', () => {
             component.openWorkflow();
             component.onValidate({documentText: validYaml, format: 'yaml', params: []});
             expect(validateWorkflow).toHaveBeenCalledWith(validYaml, WorkflowFormat.YAML, []);
-            expect(component.documentError()).toBeNull();
+            expect(component.documentErrors()).toEqual([]);
             expect(component.fieldErrors()).toEqual({});
         });
 
@@ -202,8 +203,9 @@ describe('WorkflowRunnerComponent', () => {
             validateWorkflow.mockReturnValue(throwError(() => new Error('validate boom')));
             component.openWorkflow();
             component.onValidate({documentText: validYaml, format: 'yaml', params: []});
-            expect(component.documentError()).toContain('validate boom');
+            expect(component.documentErrors().join(' ')).toContain('validate boom');
             expect(component.validationPassed()).toBe(false);
+            expect(component.document()).not.toBeNull();
         });
     });
 

@@ -10,8 +10,12 @@
         <button type="button" class="fme-open-workflow" (click)="openWorkflow()">Open workflow file...</button>
     </div>
 
-    @if (documentError(); as err) {
-        <p class="fme-runner-doc-error" role="alert">{{ err }}</p>
+    @if (documentErrors().length > 0) {
+        <ul class="fme-runner-doc-error" role="alert">
+            @for (err of documentErrors(); track err) {
+                <li>{{ err }}</li>
+            }
+        </ul>
     }
 
     @if (validationPassed()) {
@@ -33,7 +37,7 @@
             (validateRequested)="onValidate($event)"
             (browseRequested)="onBrowse($event)">
         </fme-workflow-runner-wizard>
-    } @else if (!documentError()) {
+    } @else if (documentErrors().length === 0) {
         <p class="fme-runner-empty">Open an externally-authored workflow file to run it.</p>
     }
 </div>
