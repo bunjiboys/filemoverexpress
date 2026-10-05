@@ -15,6 +15,16 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  schema-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4 # v4
+      - uses: ./.github/actions/setup-environment
+        with:
+          install-go: 'false'
+      - name: Check the workflow schema copies are in sync with the source of truth
+        run: task schema:check
+
   generate-protobuf:
     runs-on: ubuntu-latest
     steps:
