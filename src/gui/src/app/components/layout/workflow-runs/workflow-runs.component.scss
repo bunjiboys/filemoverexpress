@@ -1,0 +1,26 @@
+@use "../../../../styles/custom-fields";
+@use "../../../../styles/fonts";
+
+.fme-runs-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin: 0;
+    font-family: fonts.$font-family;
+    font-size: 16px;
+    font-weight: 600;
+    color: custom-fields.$regular-text-color;
+}
+
+.fme-runs-close {
+    color: custom-fields.$placeholder-text-color;
+}
+
+.fme-workflow-runs {
+    display: flex;
+    flex-direction: column;
+    min-height: 40vh;
+    font-family: fonts.$font-family;
+    color: custom-fields.$regular-text-color;
+}

@@ -1,0 +1,147 @@
+<div class="runs-table-wrapper">
+    <div class="runs-toolbar">
+        <span class="runs-title">Workflow runs</span>
+        <button mat-icon-button class="runs-refresh-btn" matTooltip="Refresh"
+                aria-label="Refresh runs" (click)="refresh()">
+            <mat-icon>refresh</mat-icon>
+        </button>
+    </div>
+
+    <div class="runs-container">
+        <table mat-table [dataSource]="runs()" multiTemplateDataRows>
+            <!-- Expand chevron: toggles the per-run steps panel. -->
+            <ng-container matColumnDef="expand">
+                <th mat-header-cell *matHeaderCellDef></th>
+                <td mat-cell *matCellDef="let run">
+                    <button mat-icon-button class="run-expand-btn" aria-label="Toggle steps"
+                            (click)="toggleExpand(run); $event.stopPropagation()">
+                        <mat-icon>{{ expandedRunId() === run.runId ? 'expand_more' : 'chevron_right' }}</mat-icon>
+                    </button>
+                </td>
+            </ng-container>
+
+            <ng-container matColumnDef="name">
+                <th mat-header-cell *matHeaderCellDef>Name</th>
+                <td mat-cell *matCellDef="let run" class="run-name">
+                    <span [matTooltip]="run.name" matTooltipPosition="right">{{ run.name }}</span>
+                </td>
+            </ng-container>
+
+            <ng-container matColumnDef="status">
+                <th mat-header-cell *matHeaderCellDef>Status</th>
+                <td mat-cell *matCellDef="let run">
+                    <span class="run-status" [class]="run.status | workflowRunStatusClass">
+                        {{ run.status | workflowRunStatus }}
+                    </span>
+                </td>
+            </ng-container>
+
+            <ng-container matColumnDef="progress">
+                <th mat-header-cell *matHeaderCellDef>Progress</th>
+                <td mat-cell *matCellDef="let run" class="run-rollup">{{ run.steps | workflowStepRollup }}</td>
+            </ng-container>
+
+            <ng-container matColumnDef="created">
+                <th mat-header-cell *matHeaderCellDef>Started</th>
+                <td mat-cell *matCellDef="let run" class="run-meta">
+                    {{ run.started ? (run.started.seconds * 1000 | date: 'short') : '-' }}
+                </td>
+            </ng-container>
+
+            <ng-container matColumnDef="completed">
+                <th mat-header-cell *matHeaderCellDef>Completed</th>
+                <td mat-cell *matCellDef="let run" class="run-meta">
+                    {{ run.completed ? (run.completed.seconds * 1000 | date: 'short') : '-' }}
+                </td>
+            </ng-container>
+
+            <ng-container matColumnDef="actions">
+                <th mat-header-cell *matHeaderCellDef></th>
+                <td mat-cell *matCellDef="let run" class="run-actions">
+                    @if (!isTerminal(run)) {
+                        <button mat-icon-button class="run-row-menu-btn" aria-label="Run actions"
+                                matTooltip="Actions" [matTooltipShowDelay]="500"
+                                [matMenuTriggerFor]="runMenu" [matMenuTriggerData]="{run: run}"
+                                (click)="$event.stopPropagation()">
+                            <mat-icon>more_vert</mat-icon>
+                        </button>
+                    }
+                </td>
+            </ng-container>
+
+            <!-- Expanded detail row: the run's steps, joined to jobs by job_id. -->
+            <ng-container matColumnDef="detail">
+                <td mat-cell *matCellDef="let run" [attr.colspan]="displayedColumns.length">
+                    <div class="run-detail" [class.expanded]="expandedRunId() === run.runId">
+                        @if (expandedRunId() === run.runId) {
+                            @if (rowErrors()[run.runId]; as rowError) {
+                                <p class="run-row-error" role="alert">{{ rowError }}</p>
+                            }
+                            @if (run.steps.length === 0) {
+                                <p class="run-no-steps">No steps recorded for this run yet.</p>
+                            } @else {
+                                <ul class="run-steps">
+                                    @for (step of run.steps; track step.stepId) {
+                                        <li class="run-step">
+                                            <span class="step-name" [matTooltip]="step.stepId">{{ step.name || step.stepId }}</span>
+                                            <span class="step-type">{{ step.type }}</span>
+                                            <span class="run-status" [class]="step.status | workflowStepStatusClass">
+                                                {{ step.status | workflowStepStatus }}
+                                            </span>
+                                            @if (step.jobId) {
+                                                <button type="button" class="step-job-link" (click)="openStepJob(step)">
+                                                    View job
+                                                </button>
+                                            }
+                                            @if (step.error) {
+                                                <span class="step-error" [matTooltip]="step.error">{{ step.error }}</span>
+                                            }
+                                        </li>
+                                    }
+                                </ul>
+                            }
+                        }
+                    </div>
+                </td>
+            </ng-container>
+
+            <tr mat-header-row *matHeaderRowDef="displayedColumns; sticky: true"></tr>
+            <tr mat-row *matRowDef="let row; columns: displayedColumns;" class="run-row"></tr>
+            <tr mat-row *matRowDef="let row; columns: ['detail'];" class="run-detail-row"></tr>
+        </table>
+
+        @if (runs().length === 0) {
+            <p class="runs-empty">No workflow runs yet. Run a workflow to see it here.</p>
+        }
+    </div>
+</div>
+
+<!-- Per-run action menu: Cancel (RUNNING/PAUSED), Pause + Pause transfers too (RUNNING),
+     Resume (PAUSED). Hidden entirely once the run is terminal. -->
+<mat-menu #runMenu="matMenu">
+    <ng-template matMenuContent let-run="run">
+        @if (run.status === RunStatus.RUNNING) {
+            <button mat-menu-item (click)="pauseRun(run, false)">
+                <mat-icon>pause</mat-icon>
+                Pause (scheduler only)
+            </button>
+            <button mat-menu-item (click)="pauseRun(run, true)">
+                <mat-icon>pause_circle</mat-icon>
+                Pause (including running transfers)
+            </button>
+        }
+        @if (run.status === RunStatus.PAUSED) {
+            <button mat-menu-item (click)="resumeRun(run)">
+                <mat-icon>play_arrow</mat-icon>
+                Resume
+            </button>
+        }
+        @if (run.status === RunStatus.RUNNING || run.status === RunStatus.PAUSED) {
+            <mat-divider></mat-divider>
+            <button mat-menu-item (click)="cancelRun(run)">
+                <mat-icon class="material-icons-outlined">cancel</mat-icon>
+                Cancel run
+            </button>
+        }
+    </ng-template>
+</mat-menu>
