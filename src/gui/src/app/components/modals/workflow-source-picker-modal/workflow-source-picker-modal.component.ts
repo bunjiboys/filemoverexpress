@@ -4,6 +4,8 @@ import { map } from 'rxjs';
 import { MAT_DIALOG_DATA, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogRef, MatDialogTitle } from '@angular/material/dialog';
 import { MatIcon } from '@angular/material/icon';
 import { MatIconButton } from '@angular/material/button';
+import { MatFormField, MatLabel } from '@angular/material/form-field';
+import { MatOption, MatSelect } from '@angular/material/select';
 import { FmeClientService } from '@services/fme-client/fme-client.service';
 import { BookmarksService } from '@services/bookmarks/bookmarks.service';
 import { FSFolder } from '@classes/grpc';
@@ -45,6 +47,10 @@ export interface WorkflowSourcePickerData {
         MatDialogClose,
         MatIcon,
         MatIconButton,
+        MatFormField,
+        MatLabel,
+        MatSelect,
+        MatOption,
     ],
 })
 export class WorkflowSourcePickerModalComponent {

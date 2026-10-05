@@ -11,24 +11,25 @@
     </p>
 
     @if (favoritePaths().length > 0) {
-        <label class="fme-source-picker-favorites">
-            <span class="fme-source-picker-favorites-label">Favorites</span>
-            <select class="fme-source-picker-favorites-select"
-                    aria-label="Jump to a favorite path"
-                    (change)="goToFavorite($any($event.target).value); $any($event.target).value = ''">
-                <option value="">Jump to a favorite path...</option>
+        <mat-form-field class="fme-source-picker-favorites" color="accent" appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Favorites</mat-label>
+            <mat-select panelClass="fme-source-picker-favorites-panel"
+                        [value]="''"
+                        (selectionChange)="goToFavorite($event.value); favoriteSelect.value = ''"
+                        #favoriteSelect>
+                <mat-option value="">Jump to a favorite path...</mat-option>
                 @for (fav of favoritePaths(); track fav) {
-                    <option [value]="fav">{{ fav }}</option>
+                    <mat-option [value]="fav">{{ fav }}</mat-option>
                 }
-            </select>
-        </label>
+            </mat-select>
+        </mat-form-field>
     } @else {
-        <label class="fme-source-picker-favorites">
-            <span class="fme-source-picker-favorites-label">Favorites</span>
-            <select class="fme-source-picker-favorites-select" aria-label="Favorite paths" disabled>
-                <option value="">No favorites saved yet</option>
-            </select>
-        </label>
+        <mat-form-field class="fme-source-picker-favorites" color="accent" appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Favorites</mat-label>
+            <mat-select [disabled]="true" [value]="''">
+                <mat-option value="">No favorites saved yet</mat-option>
+            </mat-select>
+        </mat-form-field>
     }
 
     <div class="fme-source-picker-browser">
