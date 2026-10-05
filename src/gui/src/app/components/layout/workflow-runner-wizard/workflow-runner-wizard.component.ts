@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, effect, input, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, input, output, signal } from '@angular/core';
 import { MatButton } from '@angular/material/button';
 import { ScalarFieldComponent } from '@primitives/forms/scalar-field/scalar-field.component';
 import { StringArrayFieldComponent } from '@primitives/forms/string-array-field/string-array-field.component';
@@ -12,6 +12,7 @@ import {
 } from '@app/classes/workflow/workflow-parameter-field';
 import { isArrayParameter, WorkflowParameter } from '@app/classes/workflow/workflow-parameter.model';
 import { ParsedWorkflowDocument } from '@app/classes/workflow/workflow-document.model';
+import { TransferProfileService } from '@services/transfer-profile/transfer-profile.service';
 
 /** The step the wizard is currently on. Open is completed before the wizard renders. */
 export type WizardStep = 'parameters' | 'confirm';
@@ -69,6 +70,12 @@ export class WorkflowRunnerWizardComponent {
 
     /** The declared parameters in order. */
     protected readonly parameters = computed<WorkflowParameter[]>(() => this.document().parameters);
+
+    /** The daemon's live transfer-profile names, for any transfer_profile parameter's dropdown. */
+    private readonly txpService = inject(TransferProfileService);
+    protected readonly transferProfiles = computed<readonly string[]>(
+        () => this.txpService.transferProfileStateSig().transferProfileList ?? [],
+    );
 
     /** True when every field passes client-side pre-flight validation. */
     readonly ready = computed<boolean>(() =>

@@ -19,7 +19,7 @@ describe('ScalarFieldComponent', () => {
     let component: ScalarFieldComponent;
     let fixture: ComponentFixture<ScalarFieldComponent>;
 
-    function build(param: WorkflowParameter, value = ''): void {
+    function build(param: WorkflowParameter, value = '', transferProfiles: readonly string[] = []): void {
         TestBed.configureTestingModule({
             imports: [MatIconModule,
                 MatTooltipModule,
@@ -29,6 +29,7 @@ describe('ScalarFieldComponent', () => {
         component = fixture.componentInstance;
         fixture.componentRef.setInput('parameter', param);
         fixture.componentRef.setInput('value', value);
+        fixture.componentRef.setInput('transferProfiles', transferProfiles);
         fixture.detectChanges();
     }
 
@@ -86,6 +87,45 @@ describe('ScalarFieldComponent', () => {
             component.valueChange.subscribe(changed);
             component.onText('b');
             expect(changed).toHaveBeenCalledWith('b');
+        });
+
+        it('renders a mat-select over the live transfer profiles for a transfer_profile', () => {
+            build(scalarParam({type: 'transfer_profile', required: false}), '', ['prod', 'staging']);
+            expect(fixture.nativeElement.querySelector('mat-select')).toBeTruthy();
+            expect(fixture.nativeElement.querySelector('mat-form-field.fme-scalar-enum')).toBeTruthy();
+            expect(component['profileOptions']()).toEqual(['prod', 'staging']);
+        });
+
+        it('exposes the profile options and an empty form for an optional transfer_profile', () => {
+            build(scalarParam({type: 'transfer_profile', required: false}), '', ['prod']);
+            // mat-select renders its options lazily in an overlay, so assert on the data the
+            // template binds: the live options and the optional field's empty form.
+            expect(component['profileOptions']()).toEqual(['prod']);
+            expect(component['required']()).toBe(false);
+        });
+
+        it('has no empty form for a required transfer_profile', () => {
+            build(scalarParam({type: 'transfer_profile', required: true}), '', ['prod', 'staging']);
+            expect(component['profileOptions']()).toEqual(['prod', 'staging']);
+            expect(component['required']()).toBe(true);
+        });
+
+        it('marks a required transfer_profile with no default as required', () => {
+            build(scalarParam({type: 'transfer_profile', required: true}), '', ['prod']);
+            expect(fixture.nativeElement.querySelector('.fme-required-marker')).toBeTruthy();
+        });
+
+        it('emits the chosen transfer profile name via onText', () => {
+            build(scalarParam({type: 'transfer_profile', required: false}), '', ['prod', 'staging']);
+            const changed = vi.fn();
+            component.valueChange.subscribe(changed);
+            component.onText('staging');
+            expect(changed).toHaveBeenCalledWith('staging');
+        });
+
+        it('defaults transferProfiles to empty for a non-transfer_profile type', () => {
+            build(scalarParam({type: 'string'}));
+            expect(component['profileOptions']()).toEqual([]);
         });
     });
 

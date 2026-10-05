@@ -17,7 +17,8 @@ export type WorkflowParameterType =
     | 'float'
     | 'bool'
     | 'enum'
-    | 'string_array';
+    | 'string_array'
+    | 'transfer_profile';
 
 /**
  * A parameter as declared in the workflow file, normalized into the fields the

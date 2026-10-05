@@ -103,6 +103,13 @@ function validateScalarField(param: WorkflowParameter, value: string): string | 
             return (param.values ?? []).includes(value)
                 ? null
                 : `${param.name} must be one of: ${(param.values ?? []).join(', ')}`;
+        case 'transfer_profile':
+            // The allowed set is the daemon's live transfer profiles, not a value declared
+            // on the parameter, and the daemon validates membership authoritatively at
+            // submit time. The field presents the live profiles as a dropdown; client
+            // pre-flight only enforces required-ness (handled by the empty check above), so
+            // a chosen non-empty value is always client-valid.
+            return null;
         /* c8 ignore next 3 -- justified-unreachable: string_array is routed to the array
            path before this switch, and every other WorkflowParameterType has a case; the
            default is a defense for a future scalar type added without a case here. */

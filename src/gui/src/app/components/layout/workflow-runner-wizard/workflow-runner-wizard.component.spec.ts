@@ -4,6 +4,9 @@ import { WorkflowParameter } from '@app/classes/workflow/workflow-parameter.mode
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { FormsModule } from '@angular/forms';
+import { signal } from '@angular/core';
+import { TransferProfileService } from '@services/transfer-profile/transfer-profile.service';
+import { TransferProfileState } from '@services/transfer-profile/transfer-profile.interfaces';
 import { describe, expect, it, vi } from 'vitest';
 import { WorkflowRunnerWizardComponent } from './workflow-runner-wizard.component';
 
@@ -28,11 +31,19 @@ describe('WorkflowRunnerWizardComponent', () => {
     let component: WorkflowRunnerWizardComponent;
     let fixture: ComponentFixture<WorkflowRunnerWizardComponent>;
 
-    function build(d: ParsedWorkflowDocument): void {
+    function build(d: ParsedWorkflowDocument, profiles: string[] | null = null): void {
+        const txpState = signal<TransferProfileState>({
+            transferProfileList: profiles,
+            currentTransferProfile: null,
+            currentProfileIsOIDC: false,
+        });
         TestBed.configureTestingModule({
             imports: [MatIconModule,
                 MatTooltipModule,
                 FormsModule],
+            providers: [
+                {provide: TransferProfileService, useValue: {transferProfileStateSig: txpState}},
+            ],
         });
         fixture = TestBed.createComponent(WorkflowRunnerWizardComponent);
         component = fixture.componentInstance;
@@ -43,6 +54,18 @@ describe('WorkflowRunnerWizardComponent', () => {
     it('should create', () => {
         build(doc());
         expect(component).toBeTruthy();
+    });
+
+    describe('transfer profiles', () => {
+        it('exposes the live transfer-profile list for the dropdown', () => {
+            build(doc({parameters: [param({type: 'transfer_profile', required: true})]}), ['prod', 'staging']);
+            expect(component['transferProfiles']()).toEqual(['prod', 'staging']);
+        });
+
+        it('falls back to an empty list when no daemon is connected', () => {
+            build(doc({parameters: [param({type: 'transfer_profile'})]}), null);
+            expect(component['transferProfiles']()).toEqual([]);
+        });
     });
 
     describe('initial step', () => {

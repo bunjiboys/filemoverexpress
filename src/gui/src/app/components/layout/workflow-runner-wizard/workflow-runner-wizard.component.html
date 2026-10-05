@@ -31,6 +31,7 @@
                         <fme-scalar-field
                             [parameter]="param"
                             [value]="asScalar(valueOf(param.name))"
+                            [transferProfiles]="transferProfiles()"
                             (valueChange)="setValue(param.name, $event)">
                         </fme-scalar-field>
                     }

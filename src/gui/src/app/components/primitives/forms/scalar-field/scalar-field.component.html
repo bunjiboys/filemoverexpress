@@ -38,6 +38,20 @@
                 </mat-select>
             </mat-form-field>
         }
+        @case ('transfer_profile') {
+            <mat-form-field class="fme-scalar-enum" color="accent" appearance="outline" subscriptSizing="dynamic">
+                <mat-select [attr.aria-label]="parameter().name"
+                            [value]="value()"
+                            (selectionChange)="onText($event.value)">
+                    @if (!required()) {
+                        <mat-option value=""></mat-option>
+                    }
+                    @for (opt of profileOptions(); track opt) {
+                        <mat-option [value]="opt">{{ opt }}</mat-option>
+                    }
+                </mat-select>
+            </mat-form-field>
+        }
         @case ('int') {
             <mat-form-field class="fme-scalar-field-input" color="accent" appearance="outline" subscriptSizing="dynamic">
                 <input matInput type="number" [step]="numberStep()"

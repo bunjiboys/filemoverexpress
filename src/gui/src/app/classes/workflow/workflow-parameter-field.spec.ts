@@ -280,6 +280,22 @@ describe('scalar field model', () => {
                 expect(validateField(scalarParam({type: 'enum', values: ['a'], required: false}), '')).toBeNull();
             });
         });
+
+        describe('transfer_profile', () => {
+            it('rejects an empty required transfer_profile', () => {
+                expect(validateField(scalarParam({type: 'transfer_profile', required: true}), '')).toBe(
+                    'bucket is required',
+                );
+            });
+
+            it('accepts an empty optional transfer_profile (empty form)', () => {
+                expect(validateField(scalarParam({type: 'transfer_profile', required: false}), '')).toBeNull();
+            });
+
+            it('accepts any chosen non-empty value (membership is daemon-authoritative)', () => {
+                expect(validateField(scalarParam({type: 'transfer_profile', required: true}), 'prod')).toBeNull();
+            });
+        });
     });
 
     describe('isFieldOverridden', () => {
