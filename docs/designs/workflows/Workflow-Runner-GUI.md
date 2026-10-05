@@ -370,14 +370,14 @@ recorded here. The implementation phases in section 12 build on these decisions.
 - **Params-file equivalent**: RESOLVED -- **manual entry only in v1**. The GUI does not
   load a saved parameter set / sidecar `.params.yaml` to pre-fill the prompt. (The CLI's
   `--params-file` remains available; a GUI equivalent is deferred past v1.)
-
-### Still open / deferred
-
-- **Run history**: whether a workflow run appears in the GUI's job history the same way
-  individual jobs do, consistent with how `ListJobs` behaves today (an open item the
-  format doc also flags for `fme workflow list`). The runs view (section 7) is the
-  primary run-history surface; whether runs also surface in the single-job history is left
-  for the runs-view phase.
+- **Run history**: RESOLVED -- a workflow run's **jobs appear in the GUI's job history
+  exactly like standalone jobs do**. A `Job` step is created through the normal job-manager
+  path, so it is returned by `ListJobs` and ingested by the jobs table with no
+  workflow-provenance filter; the only difference is the `workflow_run_id` /
+  `workflow_step_id` provenance the daemon stamps on it, which the runs view (section 7)
+  uses to group a run's steps. So the jobs table lists *all* jobs (standalone and
+  workflow-step alike), and the runs view is the additional run-level grouping on top --
+  not a replacement that hides step jobs from the single-job surface.
 
 ## 12. Implementation plan (phases)
 
@@ -450,4 +450,3 @@ Section 7, composing on top of phases 1-2.
 
 - Read-only graph preview (section 8) -- a plain step list suffices for v1.
 - Params-file / saved parameter-set load (section 11, manual entry only in v1).
-- Whether runs also appear in the single-job history surface (section 11, still open).
