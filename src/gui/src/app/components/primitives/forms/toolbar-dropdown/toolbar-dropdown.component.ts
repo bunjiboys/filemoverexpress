@@ -6,6 +6,7 @@ import { MatDivider } from '@angular/material/list';
 import { MatMenu, MatMenuItem, MatMenuTrigger } from '@angular/material/menu';
 import { ConfigComponent } from '@containers/forms/config/config.component';
 import { WorkflowRunnerComponent } from '@app/components/layout/workflow-runner/workflow-runner.component';
+import { WorkflowRunsComponent } from '@app/components/layout/workflow-runs/workflow-runs.component';
 import { isPackagedApp } from '@app/utils/utils';
 import { FmeClientService } from '@services/fme-client/fme-client.service';
 import { NotificationsService } from '@services/notifications/notifications.service';
@@ -69,6 +70,24 @@ export class ToolbarDropdownComponent {
         this.dialog.open(WorkflowRunnerComponent, {
             width: '70%',
             maxWidth: '960px',
+            minHeight: '50vh',
+            maxHeight: '85%',
+            autoFocus: 'dialog',
+            panelClass: 'settings-dialog',
+        });
+    }
+
+    /**
+     * Open the workflow runs management view as a modal (sibling of the runner). Lists,
+     * cancels, pauses, and resumes runs; gated on a live daemon connection like the runner.
+     */
+    openWorkflowRuns() {
+        if (!this.connected) {
+            return;
+        }
+        this.dialog.open(WorkflowRunsComponent, {
+            width: '70%',
+            maxWidth: '1000px',
             minHeight: '50vh',
             maxHeight: '85%',
             autoFocus: 'dialog',

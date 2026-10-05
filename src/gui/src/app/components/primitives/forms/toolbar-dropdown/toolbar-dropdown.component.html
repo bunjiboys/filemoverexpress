@@ -7,6 +7,8 @@
 
     <button mat-menu-item (click)="openWorkflowRunner()" [disabled]="!connected">Run a workflow...</button>
 
+    <button mat-menu-item (click)="openWorkflowRuns()" [disabled]="!connected">Manage workflow runs...</button>
+
     <mat-divider></mat-divider>
 
     <button mat-menu-item (click)="generateSupportFile()" [disabled]="!connected">Generate Support Package</button>
