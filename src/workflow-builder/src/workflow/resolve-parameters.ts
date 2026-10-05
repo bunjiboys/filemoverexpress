@@ -75,8 +75,11 @@ function resolveOne(spec: ParameterSpec, values: Record<string, unknown>, errors
             errors.push(`required parameter: ${spec.name}`);
             return { value: undefined, hasValue: false };
         }
-        if (spec.type === 'string' || spec.type === 'enum') {
+        if (spec.type === 'string' || spec.type === 'enum' || spec.type === 'transfer_profile') {
             return { value: '', hasValue: false }; // empty form
+        }
+        if (spec.type === 'string_array') {
+            return { value: [], hasValue: false }; // empty list form
         }
         // bool/int/float have no empty form.
         errors.push(`parameter has no value and no default: ${spec.name}`);
@@ -101,6 +104,21 @@ function checkConstraints(spec: ParameterSpec, value: unknown, errors: string[])
             errors.push(`parameter ${spec.name} does not match pattern`);
         }
     }
+    // string_array: the pattern applies element-wise to every string element
+    // (format doc Parameters; wire-level the array travels in the repeated `values`
+    // field, but in the builder a string_array value is a plain JS string[]).
+    if (spec.type === 'string_array' && spec.pattern !== undefined && Array.isArray(value)) {
+        const re = new RegExp(spec.pattern);
+        for (const element of value) {
+            if (typeof element !== 'string' || !re.test(element)) {
+                errors.push(`parameter ${spec.name} has an element that does not match pattern`);
+                break;
+            }
+        }
+    }
+    // transfer_profile resolves to a profile-name string; membership in the daemon's
+    // live profile list is daemon-authoritative and not checked here (the builder has
+    // no daemon connection).
     return value;
 }
 

@@ -1,13 +1,20 @@
 // A declared workflow parameter, matching the `parameter` payload in
 // schemas/workflow/v1.json. Referenced in `with` values as ${params.<name>}.
-export type ParameterType = 'string' | 'int' | 'float' | 'bool' | 'enum';
+export type ParameterType =
+    | 'string'
+    | 'int'
+    | 'float'
+    | 'bool'
+    | 'enum'
+    | 'string_array'
+    | 'transfer_profile';
 
 export interface ParameterSpec {
     name: string;
     type: ParameterType;
     required?: boolean;
     default?: unknown;
-    pattern?: string; // string only
+    pattern?: string; // string and string_array only (applied element-wise to string_array)
     min?: number; // int/float only
     max?: number; // int/float only
     values?: string[]; // enum only

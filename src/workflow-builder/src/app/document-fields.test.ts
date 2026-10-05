@@ -3,6 +3,14 @@ import {
     addParameter,
     removeParameter,
     patchParameter,
+    patchParameterType,
+    extraFieldsForType,
+    isExtraFieldRequired,
+    parseBound,
+    joinValues,
+    splitValues,
+    defaultToText,
+    parseDefault,
     asParameterList,
     defaultsToText,
     textToDefaults,
@@ -67,6 +75,164 @@ describe('patchParameter', () => {
         );
         expect(result[0]).toEqual({ name: 'a', type: 'string' });
         expect(result[1].name).toBe('b2');
+    });
+});
+
+describe('extraFieldsForType', () => {
+    it('offers pattern for string and string_array', () => {
+        expect(extraFieldsForType('string')).toEqual(['pattern']);
+        expect(extraFieldsForType('string_array')).toEqual(['pattern']);
+    });
+
+    it('offers min and max for int and float', () => {
+        expect(extraFieldsForType('int')).toEqual(['min', 'max']);
+        expect(extraFieldsForType('float')).toEqual(['min', 'max']);
+    });
+
+    it('offers values for enum', () => {
+        expect(extraFieldsForType('enum')).toEqual(['values']);
+    });
+
+    it('offers no extra fields for bool or transfer_profile', () => {
+        expect(extraFieldsForType('bool')).toEqual([]);
+        expect(extraFieldsForType('transfer_profile')).toEqual([]);
+    });
+});
+
+describe('isExtraFieldRequired', () => {
+    it('marks only enum values as required', () => {
+        expect(isExtraFieldRequired('values')).toBe(true);
+    });
+
+    it('marks pattern, min and max as optional', () => {
+        expect(isExtraFieldRequired('pattern')).toBe(false);
+        expect(isExtraFieldRequired('min')).toBe(false);
+        expect(isExtraFieldRequired('max')).toBe(false);
+    });
+});
+
+describe('patchParameterType', () => {
+    it('sets the new type', () => {
+        const result = patchParameterType([{ name: 'a', type: 'string' }], 0, 'int');
+        expect(result[0].type).toBe('int');
+    });
+
+    it('drops a pattern when switching away from string', () => {
+        const result = patchParameterType([{ name: 'a', type: 'string', pattern: '^x$' }], 0, 'int');
+        expect(result[0]).toEqual({ name: 'a', type: 'int' });
+    });
+
+    it('keeps the pattern when switching string -> string_array', () => {
+        const result = patchParameterType([{ name: 'a', type: 'string', pattern: '^x$' }], 0, 'string_array');
+        expect(result[0]).toEqual({ name: 'a', type: 'string_array', pattern: '^x$' });
+    });
+
+    it('drops min/max when switching away from a numeric type', () => {
+        const result = patchParameterType([{ name: 'a', type: 'int', min: 1, max: 5 }], 0, 'string');
+        expect(result[0]).toEqual({ name: 'a', type: 'string' });
+    });
+
+    it('drops values when switching away from enum', () => {
+        const result = patchParameterType([{ name: 'a', type: 'enum', values: ['x'] }], 0, 'transfer_profile');
+        expect(result[0]).toEqual({ name: 'a', type: 'transfer_profile' });
+    });
+
+    it('preserves name and required but clears default across a type change', () => {
+        const result = patchParameterType(
+            [{ name: 'a', type: 'int', min: 1, required: true, default: 3 }],
+            0,
+            'string',
+        );
+        expect(result[0]).toEqual({ name: 'a', type: 'string', required: true });
+    });
+
+    it('leaves other rows untouched', () => {
+        const result = patchParameterType(
+            [{ name: 'a', type: 'string', pattern: '^x$' }, { name: 'b', type: 'int' }],
+            1,
+            'float',
+        );
+        expect(result[0]).toEqual({ name: 'a', type: 'string', pattern: '^x$' });
+        expect(result[1]).toEqual({ name: 'b', type: 'float' });
+    });
+});
+
+describe('parseBound', () => {
+    it('returns undefined for empty or whitespace', () => {
+        expect(parseBound('')).toBeUndefined();
+        expect(parseBound('   ')).toBeUndefined();
+    });
+
+    it('parses a numeric string', () => {
+        expect(parseBound('5')).toBe(5);
+        expect(parseBound('-2.5')).toBe(-2.5);
+    });
+
+    it('returns undefined for a non-numeric string', () => {
+        expect(parseBound('abc')).toBeUndefined();
+    });
+});
+
+describe('enum values text round-trip', () => {
+    it('joins values for the input', () => {
+        expect(joinValues(['a', 'b'])).toBe('a, b');
+        expect(joinValues(undefined)).toBe('');
+    });
+
+    it('splits trimmed non-empty entries', () => {
+        expect(splitValues('a, b , ,c')).toEqual(['a',
+            'b',
+            'c']);
+        expect(splitValues('   ')).toEqual([]);
+    });
+});
+
+describe('defaultToText', () => {
+    it('renders undefined and null as empty', () => {
+        expect(defaultToText(undefined)).toBe('');
+        expect(defaultToText(null)).toBe('');
+    });
+
+    it('renders a string, number and bool as text', () => {
+        expect(defaultToText('x')).toBe('x');
+        expect(defaultToText(3)).toBe('3');
+        expect(defaultToText(true)).toBe('true');
+    });
+
+    it('comma-joins an array default', () => {
+        expect(defaultToText(['a', 'b'])).toBe('a, b');
+    });
+});
+
+describe('parseDefault', () => {
+    it('clears on empty or whitespace for any type', () => {
+        expect(parseDefault('string', '')).toBeUndefined();
+        expect(parseDefault('int', '   ')).toBeUndefined();
+        expect(parseDefault('string_array', '')).toBeUndefined();
+    });
+
+    it('truncates an int toward zero', () => {
+        expect(parseDefault('int', '3.9')).toBe(3);
+        expect(parseDefault('int', '-2.9')).toBe(-2);
+    });
+
+    it('keeps a float as-is', () => {
+        expect(parseDefault('float', '1.5')).toBe(1.5);
+    });
+
+    it('clears a non-numeric int/float entry rather than storing NaN', () => {
+        expect(parseDefault('int', 'abc')).toBeUndefined();
+        expect(parseDefault('float', 'x')).toBeUndefined();
+    });
+
+    it('splits a string_array default into a list', () => {
+        expect(parseDefault('string_array', '/vol/A, /vol/B')).toEqual(['/vol/A', '/vol/B']);
+    });
+
+    it('returns the raw string for string, enum and transfer_profile', () => {
+        expect(parseDefault('string', 'hello')).toBe('hello');
+        expect(parseDefault('enum', 'prod')).toBe('prod');
+        expect(parseDefault('transfer_profile', 'fast-upload')).toBe('fast-upload');
     });
 });
 

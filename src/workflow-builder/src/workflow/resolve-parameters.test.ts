@@ -173,4 +173,86 @@ describe('resolveParameters', () => {
         expect(r.with.x).toBe('a');
         expect(r.errors.some((e) => /required parameter: n/i.test(e))).toBe(true);
     });
+
+    it('preserves the array for a whole-value string_array reference', () => {
+        const r = run(
+            { sources: '${params.cards}' },
+            [{ name: 'cards', type: 'string_array' }],
+            { cards: ['/vol/A', '/vol/B'] },
+        );
+        expect(r.errors).toEqual([]);
+        expect(r.with.sources).toEqual(['/vol/A', '/vol/B']);
+    });
+
+    it('uses an array default for an omitted string_array', () => {
+        const r = run(
+            { sources: '${params.cards}' },
+            [{ name: 'cards', type: 'string_array', default: ['/vol/X'] }],
+        );
+        expect(r.errors).toEqual([]);
+        expect(r.with.sources).toEqual(['/vol/X']);
+    });
+
+    it('resolves an omitted optional string_array to an empty array', () => {
+        const r = run(
+            { sources: '${params.cards}' },
+            [{ name: 'cards', type: 'string_array' }],
+        );
+        expect(r.errors).toEqual([]);
+        expect(r.with.sources).toEqual([]);
+    });
+
+    it('errors when a required string_array has no value', () => {
+        const r = run(
+            { sources: '${params.cards}' },
+            [{ name: 'cards', type: 'string_array', required: true }],
+        );
+        expect(r.errors.some((e) => /required parameter: cards/i.test(e))).toBe(true);
+    });
+
+    it('applies a string_array pattern element-wise and accepts a matching list', () => {
+        const r = run(
+            { sources: '${params.cards}' },
+            [{ name: 'cards', type: 'string_array', pattern: '^/vol/[A-Z]$' }],
+            { cards: ['/vol/A', '/vol/B'] },
+        );
+        expect(r.errors).toEqual([]);
+        expect(r.with.sources).toEqual(['/vol/A', '/vol/B']);
+    });
+
+    it('flags a string_array whose element violates the pattern', () => {
+        const r = run(
+            { sources: '${params.cards}' },
+            [{ name: 'cards', type: 'string_array', pattern: '^/vol/[A-Z]$' }],
+            { cards: ['/vol/A', '/bad'] },
+        );
+        expect(r.errors.some((e) => /cards.*element.*does not match/i.test(e))).toBe(true);
+    });
+
+    it('resolves a transfer_profile parameter as a plain string', () => {
+        const r = run(
+            { transferProfile: '${params.profile}' },
+            [{ name: 'profile', type: 'transfer_profile' }],
+            { profile: 'fast-upload' },
+        );
+        expect(r.errors).toEqual([]);
+        expect(r.with.transferProfile).toBe('fast-upload');
+    });
+
+    it('resolves an omitted optional transfer_profile to empty (daemon validates membership)', () => {
+        const r = run(
+            { transferProfile: '${params.profile}' },
+            [{ name: 'profile', type: 'transfer_profile' }],
+        );
+        expect(r.errors).toEqual([]);
+        expect(r.with.transferProfile).toBe('');
+    });
+
+    it('errors when a required transfer_profile has no value', () => {
+        const r = run(
+            { transferProfile: '${params.profile}' },
+            [{ name: 'profile', type: 'transfer_profile', required: true }],
+        );
+        expect(r.errors.some((e) => /required parameter: profile/i.test(e))).toBe(true);
+    });
 });
