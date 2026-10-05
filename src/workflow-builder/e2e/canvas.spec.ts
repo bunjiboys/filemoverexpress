@@ -26,21 +26,22 @@ test('seeds the default fork/join pipeline on load', async ({ page }) => {
     // ingest->verify, verify->settle, verify->inventory, settle->archive, inventory->archive.
     await expect(flowEdges(page)).toHaveCount(5);
     // Nodes render their step type and display name.
-    await expect(flowNode(page, 'ingest')).toContainText('Job');
+    await expect(flowNode(page, 'ingest')).toContainText('Download');
     await expect(flowNode(page, 'verify')).toContainText('Checksum');
     await expect(flowNode(page, 'settle')).toContainText('Sleep');
     await expect(flowNode(page, 'inventory')).toContainText('InventoryReport');
 });
 
 test('adds a step from the palette for each type', async ({ page }) => {
-    for (const type of ['Job',
+    for (const type of ['Upload',
+        'Download',
         'Checksum',
         'Sleep',
         'InventoryReport']) {
         await addStep(page, type);
     }
-    // Four new nodes beyond the seed; new ones are unnamed until edited.
-    await expect(flowNodes(page)).toHaveCount(SEED_NODE_COUNT + 4);
+    // Five new nodes beyond the seed; new ones are unnamed until edited.
+    await expect(flowNodes(page)).toHaveCount(SEED_NODE_COUNT + 5);
     await expect(flowNode(page, 'step-1')).toContainText('(unnamed)');
     await expect(flowNode(page, 'step-4')).toBeVisible();
 });

@@ -52,11 +52,11 @@ describe('nextNodeId', () => {
 
 describe('addNode', () => {
     it('adds a node of the given type with a generated id and empty payload', () => {
-        const result = addNode(empty, 'Job');
+        const result = addNode(empty, 'Upload');
         expect(result.nodes).toHaveLength(1);
         expect(result.nodes[0]).toEqual({
             id: 'step-1',
-            type: 'Job',
+            type: 'Upload',
             with: {},
             continueOnError: false,
         });

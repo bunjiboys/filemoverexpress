@@ -8,7 +8,7 @@ const graph = (
     parameters: ParameterSpec[] = [],
     defaults?: Record<string, unknown>,
 ): WorkflowGraph => ({
-    nodes: [{ id: 'a', type: 'Job', with: withValues, continueOnError: false }],
+    nodes: [{ id: 'a', type: 'Upload', with: withValues, continueOnError: false }],
     edges: [],
     parameters,
     defaults,
@@ -54,7 +54,7 @@ describe('lintParameterRefs', () => {
 
     it('flags any reference when no parameters are declared at all', () => {
         const g: WorkflowGraph = {
-            nodes: [{ id: 'a', type: 'Job', with: { d: '${params.x}' }, continueOnError: false }],
+            nodes: [{ id: 'a', type: 'Upload', with: { d: '${params.x}' }, continueOnError: false }],
             edges: [],
         };
         expect(lintParameterRefs(g).some((e) => /undeclared parameter: x/i.test(e))).toBe(true);

@@ -1,5 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { MatDialog } from '@angular/material/dialog';
+import { MatDialog, MatDialogRef } from '@angular/material/dialog';
 import { WailsService } from '@services/wails/wails.service';
 import { FmeClientService } from '@services/fme-client/fme-client.service';
 import { WorkflowFormat, WorkflowValidationErrorKind } from '@gen/es/fme/v1/workflow_pb';
@@ -18,9 +18,8 @@ spec:
       required: true
   steps:
     - id: ingest
-      type: Job
+      type: Upload
       with:
-        direction: upload
         transferProfile: prod
         sources: ["\${params.bucket}"]
         destination: out
@@ -35,6 +34,7 @@ describe('WorkflowRunnerComponent', () => {
     let runWorkflow: ReturnType<typeof vi.fn>;
     let validateWorkflow: ReturnType<typeof vi.fn>;
     let dialogOpen: ReturnType<typeof vi.fn>;
+    let dialogClose: ReturnType<typeof vi.fn>;
 
     function build(): void {
         openFile = vi.fn(() => of('/wf/nightly.yaml'));
@@ -42,6 +42,7 @@ describe('WorkflowRunnerComponent', () => {
         runWorkflow = vi.fn(() => of({accepted: true, runId: 'run-1', errors: []}));
         validateWorkflow = vi.fn(() => of({valid: true, errors: []}));
         dialogOpen = vi.fn(() => ({afterClosed: () => of(undefined)}));
+        dialogClose = vi.fn();
 
         TestBed.configureTestingModule({
             imports: [WorkflowRunnerComponent],
@@ -49,6 +50,7 @@ describe('WorkflowRunnerComponent', () => {
                 {provide: WailsService, useValue: {openFile, readTextFile}},
                 {provide: FmeClientService, useValue: {runWorkflow, validateWorkflow}},
                 {provide: MatDialog, useValue: {open: dialogOpen}},
+                {provide: MatDialogRef, useValue: {close: dialogClose}},
             ],
         });
         fixture = TestBed.createComponent(WorkflowRunnerComponent);
@@ -121,6 +123,7 @@ describe('WorkflowRunnerComponent', () => {
                 {name: 'bucket', value: 'media', values: []},
             ]);
             expect(started).toHaveBeenCalledWith('run-1');
+            expect(dialogClose).toHaveBeenCalledWith('run-1');
         });
 
         it('routes PARAMETER errors to field errors keyed by parameter name', () => {
@@ -135,6 +138,7 @@ describe('WorkflowRunnerComponent', () => {
             component.onRun({documentText: validYaml, format: 'yaml', params: []});
 
             expect(component.fieldErrors()['bucket']).toBe('required');
+            expect(dialogClose).not.toHaveBeenCalled();
             expect(component.documentErrors()).toEqual([]);
         });
 

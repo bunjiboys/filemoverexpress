@@ -18,9 +18,8 @@ spec:
       type: Sleep
       with: {duration: 1s}
     - id: b
-      type: Job
+      type: Upload
       with:
-        direction: upload
         transferProfile: prod
         sources: ["/mnt/${params.day}"]
         destination: "d/${params.day}"
@@ -111,9 +110,8 @@ spec:
       required: true
   steps:
     - id: a
-      type: Job
+      type: Upload
       with:
-        direction: upload
         transferProfile: prod
         sources: ["/mnt"]
         destination: "d/${params.p}"
@@ -135,9 +133,8 @@ spec:
       required: true
   steps:
     - id: a
-      type: Job
+      type: Upload
       with:
-        direction: upload
         transferProfile: prod
         sources: ["/mnt/${params.p}/x"]
         destination: d
@@ -160,9 +157,8 @@ spec:
       required: true
   steps:
     - id: a
-      type: Job
+      type: Upload
       with:
-        direction: upload
         transferProfile: "${params.profile}"
         sources: ["/mnt/x"]
         destination: d

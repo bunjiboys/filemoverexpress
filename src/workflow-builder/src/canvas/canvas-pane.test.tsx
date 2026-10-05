@@ -12,7 +12,7 @@ import type { NodePatch } from './graph-mutations';
 // is mocked to a thin harness that surfaces its node and fires save/delete/dismiss.
 vi.mock('./add-step-menu', () => ({
     AddStepMenu: ({ onAdd }: { onAdd: (t: string) => void }) => (
-        <button type="button" data-testid="palette" onClick={() => onAdd('Job')}>add step</button>
+        <button type="button" data-testid="palette" onClick={() => onAdd('Upload')}>add step</button>
     ),
 }));
 vi.mock('./workflow-canvas', () => ({
@@ -113,7 +113,7 @@ describe('CanvasPane', () => {
         const controller = controllerStub();
         render(<CanvasPane controller={controller} colorMode="light" />);
         fireEvent.click(screen.getByTestId('palette'));
-        expect(controller.addNode).toHaveBeenCalledWith('Job');
+        expect(controller.addNode).toHaveBeenCalledWith('Upload');
     });
 
     it('re-runs layout when the re-layout button is clicked', () => {

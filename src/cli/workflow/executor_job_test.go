@@ -24,9 +24,14 @@ type jobHarness struct {
 }
 
 func newJobHarness(t *testing.T) (*JobExecutor, *jobHarness) {
+	return newJobHarnessDir(t, transfertypes.Upload)
+}
+
+func newJobHarnessDir(t *testing.T, direction transfertypes.Direction) (*JobExecutor, *jobHarness) {
 	t.Helper()
 	h := &jobHarness{ch: make(chan eventtypes.Event, 1), created: make(chan *jobmanagertypes.Job, 1)}
 	exec := &JobExecutor{
+		direction: direction,
 		resolveProfile: func(name string) (configtypes.TransferProfile, error) {
 			if name == "" {
 				return configtypes.TransferProfile{}, errors.New("empty profile")
@@ -60,8 +65,7 @@ func newJobHarness(t *testing.T) (*JobExecutor, *jobHarness) {
 }
 
 func jobStep() Step {
-	return Step{ID: "ingest", Name: "Ingest cards", Type: StepJob, With: map[string]any{
-		"direction":       "upload",
+	return Step{ID: "ingest", Name: "Ingest cards", Type: StepUpload, With: map[string]any{
 		"transferProfile": "prod",
 		"sources":         []any{"/a", "/b"},
 		"destination":     "shows/day",
@@ -151,9 +155,9 @@ func TestJobExecutorRegistersOnlyJobEventFilters(t *testing.T) {
 }
 
 func TestJobExecutorDownloadDirection(t *testing.T) {
-	exec, h := newJobHarness(t)
+	exec, h := newJobHarnessDir(t, transfertypes.Download)
 	step := jobStep()
-	step.With["direction"] = "download"
+	step.Type = StepDownload
 	step.With["s3PrefixToTrim"] = "trim/"
 	err := runWithEvent(exec, h, step, &eventtypes.JobCompleteEvent{Name: "Ingest cards"})
 	if err != nil {
@@ -197,15 +201,6 @@ func TestJobExecutorIgnoresOtherJobsEvents(t *testing.T) {
 	}
 }
 
-func TestJobExecutorBadDirection(t *testing.T) {
-	exec, _ := newJobHarness(t)
-	step := jobStep()
-	step.With["direction"] = "sideways"
-	if err := exec.Execute(context.Background(), step); err == nil {
-		t.Fatal("expected an error for an invalid direction")
-	}
-}
-
 func TestJobExecutorMissingProfile(t *testing.T) {
 	exec, _ := newJobHarness(t)
 	step := jobStep()
@@ -236,10 +231,13 @@ func TestJobExecutorCancellation(t *testing.T) {
 }
 
 func TestNewJobExecutorWiresSeams(t *testing.T) {
-	exec := NewJobExecutor()
+	exec := NewJobExecutor(transfertypes.Upload)
 	if exec.resolveProfile == nil || exec.newJob == nil || exec.dispatch == nil ||
 		exec.register == nil || exec.remove == nil {
 		t.Fatal("NewJobExecutor did not wire all seams")
+	}
+	if exec.direction != transfertypes.Upload {
+		t.Errorf("direction = %q, want upload", exec.direction)
 	}
 }
 

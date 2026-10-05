@@ -12,7 +12,7 @@ const jobWith = (dest: string): Record<string, unknown> => ({
 describe('toWorkflow', () => {
     it('emits a well-formed v1 document with apiVersion and kind', () => {
         const graph: WorkflowGraph = {
-            nodes: [{ id: 'a', type: 'Job', with: jobWith('x'), continueOnError: false }],
+            nodes: [{ id: 'a', type: 'Upload', with: jobWith('x'), continueOnError: false }],
             edges: [],
         };
         const doc = toWorkflow(graph);
@@ -24,8 +24,8 @@ describe('toWorkflow', () => {
     it('reconstructs dependsOn from incoming edges', () => {
         const graph: WorkflowGraph = {
             nodes: [
-                { id: 'a', type: 'Job', with: jobWith('x'), continueOnError: false },
-                { id: 'b', type: 'Job', with: jobWith('y'), continueOnError: false },
+                { id: 'a', type: 'Upload', with: jobWith('x'), continueOnError: false },
+                { id: 'b', type: 'Upload', with: jobWith('y'), continueOnError: false },
                 { id: 'c', type: 'Sleep', with: { duration: '5s' }, continueOnError: false },
             ],
             edges: [
@@ -41,7 +41,7 @@ describe('toWorkflow', () => {
 
     it('carries metadata, parameters, and defaults through unchanged', () => {
         const graph: WorkflowGraph = {
-            nodes: [{ id: 'a', type: 'Job', with: jobWith('x'), continueOnError: false }],
+            nodes: [{ id: 'a', type: 'Upload', with: jobWith('x'), continueOnError: false }],
             edges: [],
             metadata: { name: 'nightly', labels: { show: 'x' } },
             parameters: [{ name: 'day', type: 'string', required: true }],
@@ -61,7 +61,7 @@ describe('fromWorkflow', () => {
             kind: KIND,
             spec: {
                 steps: [
-                    { id: 'a', type: 'Job', with: jobWith('x') }, { id: 'c', type: 'Sleep', with: { duration: '5s' }, dependsOn: ['a'] },
+                    { id: 'a', type: 'Upload', with: jobWith('x') }, { id: 'c', type: 'Sleep', with: { duration: '5s' }, dependsOn: ['a'] },
                 ],
             },
         };
@@ -103,7 +103,7 @@ describe('round-trip', () => {
             metadata: { name: 'nightly' },
             spec: {
                 steps: [
-                    { id: 'a', name: 'Ingest', type: 'Job', with: jobWith('x') },
+                    { id: 'a', name: 'Ingest', type: 'Upload', with: jobWith('x') },
                     { id: 'b', type: 'Checksum', with: { sources: ['/vol/a'], algorithm: 'xxh3' } },
                     { id: 'c', type: 'Sleep', with: { duration: '5s' }, dependsOn: ['a', 'b'], continueOnError: true },
                 ],

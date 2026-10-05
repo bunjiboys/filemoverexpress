@@ -14,7 +14,7 @@ function step(status: WorkflowStepStatus): WorkflowStep {
         $typeName: 'fme.v1.WorkflowStep',
         stepId: 's',
         name: 'n',
-        type: 'Job',
+        type: 'Upload',
         status,
         jobId: '',
         error: '',

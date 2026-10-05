@@ -28,7 +28,7 @@ vi.mock('./canvas/canvas-pane', () => ({
         seenController = controller;
         return (
             <div>
-                <button type="button" data-testid="canvas-add" onClick={() => controller.addNode('Job')}>
+                <button type="button" data-testid="canvas-add" onClick={() => controller.addNode('Upload')}>
                     add
                 </button>
                 <button type="button" data-testid="canvas-delete" onClick={() => controller.deleteNode('ingest')}>
@@ -113,7 +113,7 @@ describe('App', () => {
         // The derived editor text now carries the new Job step.
         await waitFor(() => {
             const editor = screen.getByLabelText('editor-yaml') as HTMLTextAreaElement;
-            expect(editor.value).toContain('type: Job');
+            expect(editor.value).toContain('type: Upload');
         });
     });
 
@@ -186,7 +186,7 @@ describe('App', () => {
     it('applies an imported workflow to the model and editor', async () => {
         importWorkflow.mockResolvedValueOnce({
             status: 'imported',
-            graph: { nodes: [{ id: 'imp-1', type: 'Job', with: {}, continueOnError: false }], edges: [] },
+            graph: { nodes: [{ id: 'imp-1', type: 'Upload', with: {}, continueOnError: false }], edges: [] },
             text: 'apiVersion: fme.dev/workflow/v1\nkind: Workflow\nspec:\n  steps: []\n',
             format: 'yaml',
             name: 'imported.yaml',

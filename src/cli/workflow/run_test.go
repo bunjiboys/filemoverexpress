@@ -96,7 +96,7 @@ func TestNewWorkflowRun(t *testing.T) {
 	doc := Document{
 		Metadata: &Metadata{Name: "nightly"},
 		Spec: Spec{Steps: []Step{
-			{ID: "a", Name: "Step A", Type: StepJob},
+			{ID: "a", Name: "Step A", Type: StepUpload},
 			{ID: "b", Type: StepSleep, DependsOn: []string{"a"}},
 		}},
 	}
@@ -113,7 +113,7 @@ func TestNewWorkflowRun(t *testing.T) {
 	if len(run.Steps) != 2 {
 		t.Fatalf("Steps len = %d, want 2", len(run.Steps))
 	}
-	if run.Steps[0].StepID != "a" || run.Steps[0].Name != "Step A" || run.Steps[0].Type != string(StepJob) {
+	if run.Steps[0].StepID != "a" || run.Steps[0].Name != "Step A" || run.Steps[0].Type != string(StepUpload) {
 		t.Errorf("step[0] = %+v", run.Steps[0])
 	}
 	if run.Steps[0].Status != StepPending || run.Steps[1].Status != StepPending {

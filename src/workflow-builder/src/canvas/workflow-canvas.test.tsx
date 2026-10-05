@@ -65,7 +65,7 @@ function controllerStub(overrides: Partial<WorkflowGraphController> = {}): Workf
     return {
         graph: {
             nodes: [
-                { id: 'a', type: 'Sleep', with: {}, continueOnError: false }, { id: 'b', type: 'Job', with: {}, continueOnError: false },
+                { id: 'a', type: 'Sleep', with: {}, continueOnError: false }, { id: 'b', type: 'Upload', with: {}, continueOnError: false },
             ],
             edges: [{ source: 'a', target: 'b' }],
         },

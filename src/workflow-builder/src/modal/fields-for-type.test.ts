@@ -13,24 +13,35 @@ const field = (fields: ReturnType<typeof fieldsForType>, name: string) => {
 // The property form is derived from the bundled schema's <T>Step $defs, so these
 // assertions are against the real schema (docs section 2).
 describe('fieldsForType', () => {
-    it('derives Job fields with the right kinds and required flags', () => {
-        const fields = fieldsForType('Job');
+    it('derives Upload fields with the right kinds and required flags', () => {
+        const fields = fieldsForType('Upload');
         const names = fields.map((f) => f.name);
         expect(names).toEqual([
-            'direction',
             'transferProfile',
             'sources',
             'destination',
             'uploadBasePath',
-            's3PrefixToTrim',
             'force',
         ]);
-        expect(field(fields, 'direction').kind).toBe('enum');
-        expect(field(fields, 'direction').enumValues).toEqual(['upload', 'download']);
         expect(field(fields, 'sources').kind).toBe('stringList');
         expect(field(fields, 'force').kind).toBe('boolean');
         expect(field(fields, 'transferProfile').required).toBe(true);
+        expect(field(fields, 'destination').required).toBe(true);
         expect(field(fields, 'uploadBasePath').required).toBe(false);
+    });
+
+    it('derives Download fields with s3PrefixToTrim and no uploadBasePath', () => {
+        const fields = fieldsForType('Download');
+        const names = fields.map((f) => f.name);
+        expect(names).toEqual([
+            'transferProfile',
+            'sources',
+            'destination',
+            's3PrefixToTrim',
+            'force',
+        ]);
+        expect(names).not.toContain('uploadBasePath');
+        expect(field(fields, 's3PrefixToTrim').required).toBe(false);
     });
 
     it('derives Checksum fields including the algorithm enum and its default', () => {

@@ -22,9 +22,8 @@ spec:
   steps:
     - id: ingest
       name: Ingest
-      type: Job
+      type: Upload
       with:
-        direction: upload
         transferProfile: prod
         sources: ["/a"]
         destination: dest
@@ -62,13 +61,13 @@ func TestParseYAML(t *testing.T) {
 	if len(doc.Spec.Steps) != 2 {
 		t.Fatalf("steps: %d", len(doc.Spec.Steps))
 	}
-	if doc.Spec.Steps[0].Type != StepJob || doc.Spec.Steps[0].Name != "Ingest" {
+	if doc.Spec.Steps[0].Type != StepUpload || doc.Spec.Steps[0].Name != "Ingest" {
 		t.Fatalf("step 0: %+v", doc.Spec.Steps[0])
 	}
 	if got := doc.Spec.Steps[1].DependsOn; len(got) != 1 || got[0] != "ingest" {
 		t.Fatalf("dependsOn: %v", got)
 	}
-	if doc.Spec.Steps[0].With["direction"] != "upload" {
+	if doc.Spec.Steps[0].With["transferProfile"] != "prod" {
 		t.Fatalf("with payload not preserved: %+v", doc.Spec.Steps[0].With)
 	}
 }

@@ -219,13 +219,14 @@
                     "$ref": "#/$defs/stepId"
                 },
                 "name": {
-                    "description": "Human-readable label. For Job steps maps to Job.Name.",
+                    "description": "Human-readable label. For Upload and Download steps maps to Job.Name.",
                     "type": "string"
                 },
                 "type": {
                     "description": "Discriminator selecting the payload schema and the executor.",
                     "enum": [
-                        "Job",
+                        "Upload",
+                        "Download",
                         "Checksum",
                         "Sleep",
                         "InventoryReport"
@@ -252,14 +253,30 @@
                     "if": {
                         "properties": {
                             "type": {
-                                "const": "Job"
+                                "const": "Upload"
                             }
                         }
                     },
                     "then": {
                         "properties": {
                             "with": {
-                                "$ref": "#/$defs/JobStep"
+                                "$ref": "#/$defs/UploadStep"
+                            }
+                        }
+                    }
+                },
+                {
+                    "if": {
+                        "properties": {
+                            "type": {
+                                "const": "Download"
+                            }
+                        }
+                    },
+                    "then": {
+                        "properties": {
+                            "with": {
+                                "$ref": "#/$defs/DownloadStep"
                             }
                         }
                     }
@@ -314,29 +331,23 @@
                 }
             ]
         },
-        "JobStep": {
-            "description": "Maps 1:1 to the internal jobmanagertypes.JobConfig.",
+        "UploadStep": {
+            "description": "Uploads local sources to the transfer profile's S3 bucket. Maps to the internal jobmanagertypes.JobConfig with Direction=upload.",
             "type": "object",
             "required": [
-                "direction",
                 "transferProfile",
                 "sources",
                 "destination"
             ],
             "additionalProperties": false,
             "properties": {
-                "direction": {
-                    "enum": [
-                        "upload",
-                        "download"
-                    ]
-                },
                 "transferProfile": {
-                    "description": "Resolved to a TransferProfile by name on the executing daemon.",
+                    "description": "Resolved to a TransferProfile by name on the executing daemon. The S3 bucket comes from this profile, not from any field here.",
                     "type": "string",
                     "minLength": 1
                 },
                 "sources": {
+                    "description": "Local filesystem paths (files or directories) to upload.",
                     "type": "array",
                     "minItems": 1,
                     "items": {
@@ -345,18 +356,56 @@
                     }
                 },
                 "destination": {
+                    "description": "S3 key prefix (within the profile's bucket) that uploaded objects are placed under. NOT a bucket name and NOT an s3:// URI. Prepended to each source path after uploadBasePath is stripped.",
                     "type": "string",
                     "minLength": 1
                 },
                 "uploadBasePath": {
-                    "description": "Upload only.",
-                    "type": "string"
-                },
-                "s3PrefixToTrim": {
-                    "description": "Download only.",
+                    "description": "Local path prefix stripped from the front of each source before the destination prefix is applied, controlling how much local directory structure is preserved in the key. Must be an ancestor of the sources.",
                     "type": "string"
                 },
                 "force": {
+                    "description": "Transfer even when an object already exists at the destination key.",
+                    "type": "boolean",
+                    "default": false
+                }
+            }
+        },
+        "DownloadStep": {
+            "description": "Downloads objects from the transfer profile's S3 bucket to the local filesystem. Maps to the internal jobmanagertypes.JobConfig with Direction=download.",
+            "type": "object",
+            "required": [
+                "transferProfile",
+                "sources",
+                "destination"
+            ],
+            "additionalProperties": false,
+            "properties": {
+                "transferProfile": {
+                    "description": "Resolved to a TransferProfile by name on the executing daemon. The S3 bucket comes from this profile, not from any field here.",
+                    "type": "string",
+                    "minLength": 1
+                },
+                "sources": {
+                    "description": "S3 keys or prefixes (within the profile's bucket) to download.",
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    }
+                },
+                "destination": {
+                    "description": "Local filesystem folder that downloaded objects are written into. NOT an S3 location.",
+                    "type": "string",
+                    "minLength": 1
+                },
+                "s3PrefixToTrim": {
+                    "description": "S3 key prefix stripped from each downloaded object's key before it is joined to the local destination folder, controlling how much S3 key structure is preserved on disk.",
+                    "type": "string"
+                },
+                "force": {
+                    "description": "Transfer even when a file already exists at the destination path.",
                     "type": "boolean",
                     "default": false
                 }

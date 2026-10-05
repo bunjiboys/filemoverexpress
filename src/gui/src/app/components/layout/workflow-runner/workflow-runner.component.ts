@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, output, signal, ViewChild } from '@angular/core';
-import { MatDialog, MatDialogClose, MatDialogContent, MatDialogTitle } from '@angular/material/dialog';
+import { MatDialog, MatDialogClose, MatDialogContent, MatDialogRef, MatDialogTitle } from '@angular/material/dialog';
 import { MatIcon } from '@angular/material/icon';
 import { MatIconButton, MatButton } from '@angular/material/button';
 import { WailsService } from '@services/wails/wails.service';
@@ -53,6 +53,8 @@ export class WorkflowRunnerComponent {
     private wails = inject(WailsService);
     private fmeClient = inject(FmeClientService);
     private dialog = inject(MatDialog);
+    /** The dialog hosting this runner, when opened as a modal; absent in embedded/test use. */
+    private dialogRef = inject<MatDialogRef<WorkflowRunnerComponent>>(MatDialogRef, {optional: true});
 
     /** The embedded wizard, so a source-picker result can be fed back into a field. */
     @ViewChild(WorkflowRunnerWizardComponent) wizard?: WorkflowRunnerWizardComponent;
@@ -112,6 +114,10 @@ export class WorkflowRunnerComponent {
                 next: (res) => {
                     if (res.accepted) {
                         this.runStarted.emit(res.runId);
+                        // Close the modal so the submit is unambiguous; the toast and the
+                        // runs view confirm the started run. No-op when embedded/tested
+                        // without a dialog host.
+                        this.dialogRef?.close(res.runId);
                         return;
                     }
                     this.routeErrors(res.errors);

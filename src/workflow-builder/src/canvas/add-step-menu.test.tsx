@@ -23,7 +23,7 @@ describe('AddStepMenu', () => {
         const { container } = render(<AddStepMenu onAdd={onAdd} />);
         const dropdown = createWrapper(container).findButtonDropdown()!;
         dropdown.openDropdown();
-        dropdown.findItemById('Job')!.click();
-        expect(onAdd).toHaveBeenCalledWith('Job');
+        dropdown.findItemById('Upload')!.click();
+        expect(onAdd).toHaveBeenCalledWith('Upload');
     });
 });

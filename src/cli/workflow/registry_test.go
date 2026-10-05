@@ -19,7 +19,7 @@ func (s *stubExec) Execute(_ context.Context, _ Step) error {
 func TestRegistryDispatch(t *testing.T) {
 	sleep := &stubExec{}
 	job := &stubExec{err: errors.New("boom")}
-	reg := Registry{StepSleep: sleep, StepJob: job}
+	reg := Registry{StepSleep: sleep, StepUpload: job}
 
 	if err := reg.Execute(context.Background(), Step{ID: "a", Type: StepSleep}); err != nil {
 		t.Fatalf("sleep dispatch err = %v", err)
@@ -27,7 +27,7 @@ func TestRegistryDispatch(t *testing.T) {
 	if !sleep.called {
 		t.Error("sleep executor not called")
 	}
-	if err := reg.Execute(context.Background(), Step{ID: "b", Type: StepJob}); err == nil {
+	if err := reg.Execute(context.Background(), Step{ID: "b", Type: StepUpload}); err == nil {
 		t.Error("expected job error to propagate")
 	}
 	if !job.called {
@@ -45,13 +45,13 @@ func TestRegistryUnknownType(t *testing.T) {
 
 func TestNewDefaultRegistryWiresAllTypes(t *testing.T) {
 	reg := NewDefaultRegistry()
-	for _, typ := range []StepType{StepJob, StepChecksum, StepSleep, StepInventoryReport} {
+	for _, typ := range []StepType{StepUpload, StepDownload, StepChecksum, StepSleep, StepInventoryReport} {
 		if reg[typ] == nil {
 			t.Errorf("NewDefaultRegistry missing executor for %q", typ)
 		}
 	}
-	if len(reg) != 4 {
-		t.Errorf("registry has %d entries, want 4", len(reg))
+	if len(reg) != 5 {
+		t.Errorf("registry has %d entries, want 5", len(reg))
 	}
 }
 

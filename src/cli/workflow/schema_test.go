@@ -87,14 +87,14 @@ spec:
       type: Sleep
       with: {duration: not-a-duration}
 `,
-		"job missing required field": `
+		"upload missing required field": `
 apiVersion: fme.dev/workflow/v1
 kind: Workflow
 spec:
   steps:
     - id: a
-      type: Job
-      with: {direction: upload, sources: ["/a"]}
+      type: Upload
+      with: {sources: ["/a"]}
 `,
 		"writeMhl without mhlOutput": `
 apiVersion: fme.dev/workflow/v1

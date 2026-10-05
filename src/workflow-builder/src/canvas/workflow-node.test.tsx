@@ -20,8 +20,8 @@ const nodeProps = (
 
 describe('WorkflowNodeView', () => {
     it('shows the step type', () => {
-        render(<WorkflowNodeView {...nodeProps({ stepType: 'Job', name: undefined })} />);
-        expect(screen.getByText('Job')).toBeInTheDocument();
+        render(<WorkflowNodeView {...nodeProps({ stepType: 'Upload', name: undefined })} />);
+        expect(screen.getByText('Upload')).toBeInTheDocument();
     });
 
     it('shows the node name when present', () => {
@@ -35,18 +35,18 @@ describe('WorkflowNodeView', () => {
     });
 
     it('renders one input and one output handle', () => {
-        render(<WorkflowNodeView {...nodeProps({ stepType: 'Job', name: 'x' })} />);
+        render(<WorkflowNodeView {...nodeProps({ stepType: 'Upload', name: 'x' })} />);
         expect(screen.getByTestId('handle-target')).toBeInTheDocument();
         expect(screen.getByTestId('handle-source')).toBeInTheDocument();
     });
 
     it('marks itself selected when React Flow selects it', () => {
-        render(<WorkflowNodeView {...nodeProps({ stepType: 'Job', name: 'x' }, true)} />);
+        render(<WorkflowNodeView {...nodeProps({ stepType: 'Upload', name: 'x' }, true)} />);
         expect(screen.getByText('x').closest('[data-selected="true"]')).not.toBeNull();
     });
 
     it('uses the dark surface color in dark mode', () => {
-        render(<WorkflowNodeView {...nodeProps({ stepType: 'Job', name: 'x', colorMode: 'dark' })} />);
+        render(<WorkflowNodeView {...nodeProps({ stepType: 'Upload', name: 'x', colorMode: 'dark' })} />);
         const box = screen.getByText('x').closest('[data-selected]') as HTMLElement;
         // Dark surface is not white; jsdom reports rgb, so just assert it is not white.
         expect(box.style.background).not.toBe('');

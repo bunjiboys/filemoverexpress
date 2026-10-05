@@ -20,14 +20,18 @@ import (
 // executor's select iterations.
 const jobEventBuffer = 8
 
-// JobExecutor runs a Job step: it builds a JobConfig from the step's `with`, creates the
-// runtime job, dispatches it to the uploader/downloader, and waits for the job to finish
-// by SUBSCRIBING to the event bus (format doc "The Job step payload" + "Core principle:
-// everything runs in the daemon"). The uploader/downloader are fire-and-forget and report
-// completion only as events, so the bus is the completion signal. All external calls are
-// injected seams so the mapping and the wait logic are tested without a real transfer;
-// only the one dispatch line into upload/download is faked in tests.
+// JobExecutor runs an Upload or Download step: it builds a JobConfig from the step's
+// `with`, creates the runtime job, dispatches it to the uploader/downloader, and waits for
+// the job to finish by SUBSCRIBING to the event bus (format doc "The Job step payload" +
+// "Core principle: everything runs in the daemon"). The transfer direction is fixed at
+// construction (Upload or Download) and comes from the step TYPE, not an author-supplied
+// field. One JobExecutor instance is registered per direction. The uploader/downloader are
+// fire-and-forget and report completion only as events, so the bus is the completion
+// signal. All external calls are injected seams so the mapping and the wait logic are
+// tested without a real transfer; only the one dispatch line into upload/download is faked
+// in tests.
 type JobExecutor struct {
+	direction      transfertypes.Direction
 	resolveProfile func(name string) (configtypes.TransferProfile, error)
 	newJob         func(jobmanagertypes.JobConfig) (*jobmanagertypes.Job, error)
 	dispatch       func(transfertypes.Direction, *jobmanagertypes.Job)
@@ -35,10 +39,11 @@ type JobExecutor struct {
 	remove         func(id string) error
 }
 
-// NewJobExecutor builds a JobExecutor wired to the real config resolver, NewJob, the
-// upload/download dispatch, and the event bus register/remove calls.
-func NewJobExecutor() *JobExecutor {
+// NewJobExecutor builds a JobExecutor for the given direction, wired to the real config
+// resolver, NewJob, the upload/download dispatch, and the event bus register/remove calls.
+func NewJobExecutor(direction transfertypes.Direction) *JobExecutor {
 	return &JobExecutor{
+		direction: direction,
 		resolveProfile: func(name string) (configtypes.TransferProfile, error) {
 			// COVERAGE: justified-unreachable in unit tests. This closure calls
 			// config.LoadConfiguration(), which reads the daemon's on-disk config; a unit
@@ -93,22 +98,19 @@ func (j *JobExecutor) Execute(ctx context.Context, step Step) error {
 	return waitForJob(ctx, ch, job.JobId(), step.ID)
 }
 
-// buildConfig maps the step's `with` to a JobConfig, resolving the named transfer profile
-// and parsing the direction. The profile is referenced by name only (format doc
-// "Portability"). It also stamps workflow provenance (the run id from ctx + the step id)
-// onto the config so the created job carries it, which the lifecycle adapter uses to
-// resolve a step to its runtime job.
+// buildConfig maps the step's `with` to a JobConfig, resolving the named transfer profile.
+// The transfer direction is the executor's own (fixed by the step type), not read from
+// `with`. The profile is referenced by name only (format doc "Portability"). It also
+// stamps workflow provenance (the run id from ctx + the step id) onto the config so the
+// created job carries it, which the lifecycle adapter uses to resolve a step to its
+// runtime job.
 func (j *JobExecutor) buildConfig(ctx context.Context, step Step) (jobmanagertypes.JobConfig, error) {
-	direction, err := parseDirection(withString(step.With, "direction"))
-	if err != nil {
-		return jobmanagertypes.JobConfig{}, fmt.Errorf("workflow: job step %s: %w", step.ID, err)
-	}
 	profile, err := j.resolveProfile(withString(step.With, "transferProfile"))
 	if err != nil {
 		return jobmanagertypes.JobConfig{}, fmt.Errorf("workflow: job step %s: %w", step.ID, err)
 	}
 	return jobmanagertypes.JobConfig{
-		Direction:       direction,
+		Direction:       j.direction,
 		Name:            step.Name,
 		TransferProfile: &profile,
 		Destination:     withString(step.With, "destination"),
@@ -119,18 +121,6 @@ func (j *JobExecutor) buildConfig(ctx context.Context, step Step) (jobmanagertyp
 		WorkflowRunID:   runIDFrom(ctx),
 		WorkflowStepID:  step.ID,
 	}, nil
-}
-
-// parseDirection maps the workflow `direction` string to the transfer Direction enum.
-func parseDirection(s string) (transfertypes.Direction, error) {
-	switch transfertypes.Direction(s) {
-	case transfertypes.Upload:
-		return transfertypes.Upload, nil
-	case transfertypes.Download:
-		return transfertypes.Download, nil
-	default:
-		return "", fmt.Errorf("invalid direction %q", s)
-	}
 }
 
 // waitForJob blocks until an event for jobID arrives on ch: a JobErrorEvent, or a

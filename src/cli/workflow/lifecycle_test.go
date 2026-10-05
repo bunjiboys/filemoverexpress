@@ -84,7 +84,7 @@ func TestEngineCancelRunSkipsPendingAndCascades(t *testing.T) {
 	eng := NewEngine(exec, 4)
 	eng.Jobs = life
 	doc := Document{Spec: Spec{Steps: []Step{
-		{ID: "a", Type: StepJob},
+		{ID: "a", Type: StepUpload},
 		{ID: "b", Type: StepSleep, DependsOn: []string{"a"}},
 	}}}
 
@@ -150,7 +150,7 @@ func TestEnginePauseInFlightJobsCascades(t *testing.T) {
 	life := &fakeLifecycle{}
 	eng := NewEngine(exec, 4)
 	eng.Jobs = life
-	doc := Document{Spec: Spec{Steps: []Step{{ID: "a", Type: StepJob}}}}
+	doc := Document{Spec: Spec{Steps: []Step{{ID: "a", Type: StepUpload}}}}
 
 	done := make(chan struct{})
 	go func() { eng.Run(context.Background(), doc); close(done) }()
@@ -174,7 +174,7 @@ func TestEnginePauseWithoutInFlightJobsDoesNotCascade(t *testing.T) {
 	life := &fakeLifecycle{}
 	eng := NewEngine(exec, 4)
 	eng.Jobs = life
-	doc := Document{Spec: Spec{Steps: []Step{{ID: "a", Type: StepJob}}}}
+	doc := Document{Spec: Spec{Steps: []Step{{ID: "a", Type: StepUpload}}}}
 
 	done := make(chan struct{})
 	go func() { eng.Run(context.Background(), doc); close(done) }()

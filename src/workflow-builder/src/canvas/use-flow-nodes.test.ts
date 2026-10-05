@@ -43,7 +43,7 @@ let controller: WorkflowGraphController;
 
 beforeEach(() => {
     controller = controllerStub(
-        { nodes: [node('a', 'Job', 'Copy'), node('b')], edges: [] },
+        { nodes: [node('a', 'Upload', 'Copy'), node('b')], edges: [] },
         [{ id: 'a', x: 0, y: 0 }, { id: 'b', x: 100, y: 0 }],
     );
 });
@@ -58,7 +58,7 @@ describe('useFlowNodes', () => {
     it('projects the model into initial flow nodes', () => {
         const { result } = renderHook(() => useFlowNodes(controller, 'light'));
         expect(result.current.nodes.map((n) => n.id)).toEqual(['a', 'b']);
-        expect(result.current.nodes[0].data).toEqual({ stepType: 'Job', name: 'Copy', colorMode: 'light' });
+        expect(result.current.nodes[0].data).toEqual({ stepType: 'Upload', name: 'Copy', colorMode: 'light' });
     });
 
     it('applies React Flow changes to its local nodes so init/measurement is kept', () => {
@@ -124,7 +124,7 @@ describe('useFlowNodes', () => {
             initialProps: controller,
         });
         const relaid = controllerStub(
-            { nodes: [node('a', 'Job', 'Copy'), node('b')], edges: [] },
+            { nodes: [node('a', 'Upload', 'Copy'), node('b')], edges: [] },
             [{ id: 'a', x: 50, y: 50 }, { id: 'b', x: 300, y: 50 }],
         );
         rerender(relaid);
@@ -137,12 +137,12 @@ describe('useFlowNodes', () => {
             initialProps: controller,
         });
         const renamed = controllerStub(
-            { nodes: [node('a', 'Job', 'Renamed'), node('b')], edges: [] },
+            { nodes: [node('a', 'Upload', 'Renamed'), node('b')], edges: [] },
             [{ id: 'a', x: 0, y: 0 }, { id: 'b', x: 100, y: 0 }],
         );
         rerender(renamed);
         const a = result.current.nodes.find((n) => n.id === 'a');
-        expect(a?.data).toEqual({ stepType: 'Job', name: 'Renamed', colorMode: 'light' });
+        expect(a?.data).toEqual({ stepType: 'Upload', name: 'Renamed', colorMode: 'light' });
     });
 });
 

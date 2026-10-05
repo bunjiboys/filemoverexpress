@@ -9,7 +9,7 @@ import { WorkflowParameter } from '@app/classes/workflow/workflow-parameter.mode
 export interface WorkflowStepSummary {
     readonly id: string;
     readonly name?: string;
-    readonly type: 'Job' | 'Checksum' | 'Sleep' | 'InventoryReport';
+    readonly type: 'Upload' | 'Download' | 'Checksum' | 'Sleep' | 'InventoryReport';
 }
 
 /**

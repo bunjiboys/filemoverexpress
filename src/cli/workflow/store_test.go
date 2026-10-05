@@ -34,7 +34,7 @@ func sampleRun(id string) *WorkflowRun {
 		Name:   "nightly",
 		Status: RunRunning,
 		Steps: []WorkflowStep{
-			{StepID: "a", Type: string(StepJob), Status: StepSucceeded},
+			{StepID: "a", Type: string(StepUpload), Status: StepSucceeded},
 			{StepID: "b", Type: string(StepSleep), Status: StepRunning},
 		},
 		Created: time.Now().UTC().Truncate(time.Second),

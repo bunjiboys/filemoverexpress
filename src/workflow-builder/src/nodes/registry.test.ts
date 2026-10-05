@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { getDescriptor, hasDescriptor, descriptorTypes, DESCRIPTORS } from './registry';
 import { STEP_TYPES } from '../schema/loader';
-import { jobDescriptor } from './job';
+import { uploadDescriptor, downloadDescriptor } from './transfer';
 
 // The registry maps a step `type` to its descriptor. Its defining invariant: the set
 // of registered types must EXACTLY equal the schema's step-type enum (STEP_TYPES).
@@ -20,11 +20,13 @@ describe('descriptor registry', () => {
     });
 
     it('looks up a descriptor by type', () => {
-        expect(getDescriptor('Job')).toBe(jobDescriptor);
+        expect(getDescriptor('Upload')).toBe(uploadDescriptor);
+        expect(getDescriptor('Download')).toBe(downloadDescriptor);
     });
 
     it('reports whether a type has a descriptor', () => {
-        expect(hasDescriptor('Job')).toBe(true);
+        expect(hasDescriptor('Upload')).toBe(true);
+        expect(hasDescriptor('Download')).toBe(true);
         expect(hasDescriptor('NotAType')).toBe(false);
     });
 

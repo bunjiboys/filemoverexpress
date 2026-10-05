@@ -1,5 +1,5 @@
 import type { NodeDescriptor } from './descriptor';
-import { jobDescriptor } from './job';
+import { uploadDescriptor, downloadDescriptor } from './transfer';
 import { checksumDescriptor } from './checksum';
 import { sleepDescriptor } from './sleep';
 import { inventoryReportDescriptor } from './inventory-report';
@@ -13,7 +13,8 @@ import { inventoryReportDescriptor } from './inventory-report';
 // what makes "add a schema step type -> add one descriptor here" a checked contract
 // rather than a convention (docs/designs/workflows/Workflow-Builder-App.md sections 2 and 13).
 export const DESCRIPTORS: Readonly<Record<string, NodeDescriptor>> = {
-    [jobDescriptor.type]: jobDescriptor,
+    [uploadDescriptor.type]: uploadDescriptor,
+    [downloadDescriptor.type]: downloadDescriptor,
     [checksumDescriptor.type]: checksumDescriptor,
     [sleepDescriptor.type]: sleepDescriptor,
     [inventoryReportDescriptor.type]: inventoryReportDescriptor,

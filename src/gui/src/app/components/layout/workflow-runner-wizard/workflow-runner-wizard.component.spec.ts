@@ -15,7 +15,7 @@ function doc(overrides: Partial<ParsedWorkflowDocument> = {}): ParsedWorkflowDoc
         name: 'nightly-media-sync',
         parameters: [],
         steps: [
-            {id: 'ingest', name: 'Ingest cards', type: 'Job'}, {id: 'verify', name: 'Verify checksums', type: 'Checksum'},
+            {id: 'ingest', name: 'Ingest cards', type: 'Upload'}, {id: 'verify', name: 'Verify checksums', type: 'Checksum'},
         ],
         documentText: 'apiVersion: fme.dev/workflow/v1',
         format: 'yaml',

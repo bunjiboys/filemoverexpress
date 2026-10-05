@@ -29,9 +29,8 @@ spec:
   steps:
     - id: ingest
       name: Ingest cards
-      type: Job
+      type: Upload
       with:
-        direction: upload
         transferProfile: "\${params.profile}"
         sources: ["\${params.source_dir}"]
         destination: "archive/\${params.bucket}"
@@ -53,7 +52,7 @@ describe('parseWorkflowDocument', () => {
             expect(result.document.format).toBe('yaml');
             expect(result.document.documentText).toBe(minimalYaml);
             expect(result.document.steps).toEqual([
-                {id: 'ingest', name: 'Ingest cards', type: 'Job'}, {id: 'verify', name: undefined, type: 'Checksum'},
+                {id: 'ingest', name: 'Ingest cards', type: 'Upload'}, {id: 'verify', name: undefined, type: 'Checksum'},
             ]);
         });
 

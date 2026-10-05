@@ -36,19 +36,20 @@ export const INITIAL_GRAPH: WorkflowGraph = {
         labels: { team: 'post-production', tier: 'nightly' },
     },
     parameters: [
-        { name: 'transferProfile', type: 'string', required: true, default: 'default' }, { name: 'archivePrefix', type: 'string', required: false, default: 'archive/' },
+        { name: 'ingestProfile', type: 'transfer_profile', required: true, default: 'capture-ingest' },
+        { name: 'egressProfile', type: 'transfer_profile', required: true, default: 'cold-archive' },
+        { name: 'archivePrefix', type: 'string', required: false, default: 'archive/' },
     ],
     defaults: { force: false },
     nodes: [
         {
             id: 'ingest',
-            type: 'Job',
+            type: 'Download',
             name: 'Ingest from capture bucket',
             continueOnError: false,
             with: {
-                direction: 'download',
-                transferProfile: '${params.transferProfile}',
-                sources: ['s3://capture/incoming/'],
+                transferProfile: '${params.ingestProfile}',
+                sources: ['incoming/'],
                 destination: '/mnt/ingest',
             },
         },
@@ -79,7 +80,7 @@ export const INITIAL_GRAPH: WorkflowGraph = {
             name: 'Inventory capture bucket',
             continueOnError: false,
             with: {
-                transferProfile: '${params.transferProfile}',
+                transferProfile: '${params.ingestProfile}',
                 outputFormat: 'csv',
                 pretty: true,
                 includeChecksums: true,
@@ -87,14 +88,13 @@ export const INITIAL_GRAPH: WorkflowGraph = {
         },
         {
             id: 'archive',
-            type: 'Job',
+            type: 'Upload',
             name: 'Archive to cold storage',
             continueOnError: false,
             with: {
-                direction: 'upload',
-                transferProfile: '${params.transferProfile}',
+                transferProfile: '${params.egressProfile}',
                 sources: ['/mnt/ingest'],
-                destination: 's3://archive-cold',
+                destination: 'archive/cold',
                 uploadBasePath: '${params.archivePrefix}',
             },
         },

@@ -28,9 +28,10 @@ describe('schema loader', () => {
         expect(WORKFLOW_SCHEMA.$id).toBe('https://fme.dev/schemas/workflow/v1.json');
     });
 
-    it('exposes exactly the four v1 step types from the schema', () => {
+    it('exposes exactly the five v1 step types from the schema', () => {
         expect(STEP_TYPES).toEqual([
-            'Job',
+            'Upload',
+            'Download',
             'Checksum',
             'Sleep',
             'InventoryReport',
@@ -45,9 +46,8 @@ describe('schema loader', () => {
                 steps: [
                     {
                         id: 'ingest',
-                        type: 'Job',
+                        type: 'Upload',
                         with: {
-                            direction: 'upload',
                             transferProfile: 'prod',
                             sources: ['/vol/card-a'],
                             destination: 'shows/x/day-012',
@@ -67,7 +67,7 @@ describe('schema loader', () => {
         expect(result.errors.length).toBeGreaterThan(0);
     });
 
-    it('rejects a Job step whose with payload omits a required field', () => {
+    it('rejects an Upload step whose with payload omits a required field', () => {
         const doc = {
             apiVersion: 'fme.dev/workflow/v1',
             kind: 'Workflow',
@@ -75,9 +75,8 @@ describe('schema loader', () => {
                 steps: [
                     {
                         id: 'bad',
-                        type: 'Job',
+                        type: 'Upload',
                         with: {
-                            direction: 'upload',
                             transferProfile: 'prod',
                             // sources and destination missing
                         },

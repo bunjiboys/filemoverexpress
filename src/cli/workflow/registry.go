@@ -3,6 +3,8 @@ package workflow
 import (
 	"context"
 	"fmt"
+
+	"github.com/awslabs/filemoverexpress/types/transfertypes"
 )
 
 // Registry maps a step type to its executor. It implements StepExecutor itself by
@@ -12,12 +14,15 @@ import (
 // open for later types.
 type Registry map[StepType]StepExecutor
 
-// NewDefaultRegistry wires the four v1 executors (Job, Checksum, Sleep, InventoryReport)
-// to their production implementations. The daemon passes the returned registry to the
-// engine as its single StepExecutor.
+// NewDefaultRegistry wires the v1 executors (Upload, Download, Checksum, Sleep,
+// InventoryReport) to their production implementations. Upload and Download share one
+// JobExecutor implementation parameterized by direction; the direction is the step type,
+// not an author-supplied field. The daemon passes the returned registry to the engine as
+// its single StepExecutor.
 func NewDefaultRegistry() Registry {
 	return Registry{
-		StepJob:             NewJobExecutor(),
+		StepUpload:          NewJobExecutor(transfertypes.Upload),
+		StepDownload:        NewJobExecutor(transfertypes.Download),
 		StepChecksum:        NewChecksumExecutor(),
 		StepSleep:           &SleepExecutor{},
 		StepInventoryReport: NewInventoryExecutor(),

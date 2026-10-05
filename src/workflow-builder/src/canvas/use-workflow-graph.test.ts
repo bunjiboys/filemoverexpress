@@ -43,9 +43,9 @@ describe('useWorkflowGraph', () => {
         const { result } = renderHook(() => useWorkflowGraph({ nodes: [], edges: [] }));
         await waitFor(() => expect(layoutGraph).toHaveBeenCalled());
 
-        act(() => result.current.addNode('Job'));
+        act(() => result.current.addNode('Upload'));
 
-        expect(result.current.graph.nodes.map((n) => n.type)).toEqual(['Job']);
+        expect(result.current.graph.nodes.map((n) => n.type)).toEqual(['Upload']);
         await waitFor(() => expect(result.current.positions).toHaveLength(1));
     });
 

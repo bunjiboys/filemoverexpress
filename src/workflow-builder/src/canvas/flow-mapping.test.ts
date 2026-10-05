@@ -17,7 +17,7 @@ const node = (id: string, type = 'Sleep', name?: string): WorkflowGraph['nodes']
 // unit-tested here rather than through the un-renderable canvas.
 describe('toFlowNodes', () => {
     it('maps model nodes to React Flow nodes at their positioned coordinates', () => {
-        const graph: WorkflowGraph = { nodes: [node('a', 'Job', 'Copy')], edges: [] };
+        const graph: WorkflowGraph = { nodes: [node('a', 'Upload', 'Copy')], edges: [] };
         const positions: PositionedNode[] = [{ id: 'a', x: 10, y: 20 }];
         const result = toFlowNodes(graph, positions, 'dark');
         expect(result).toEqual([
@@ -25,7 +25,7 @@ describe('toFlowNodes', () => {
                 id: 'a',
                 type: 'workflow',
                 position: { x: 10, y: 20 },
-                data: { stepType: 'Job', name: 'Copy', colorMode: 'dark' },
+                data: { stepType: 'Upload', name: 'Copy', colorMode: 'dark' },
             },
         ]);
     });

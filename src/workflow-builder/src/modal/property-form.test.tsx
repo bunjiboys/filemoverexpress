@@ -7,8 +7,7 @@ import { PropertyForm } from './property-form';
 // way to interact with Cloudscape components in unit tests
 // (https://cloudscape.design/get-started/testing/). FormField labels are matched by
 // text; the controls are found and operated via their component wrappers.
-const jobValue = (over: Record<string, unknown> = {}): Record<string, unknown> => ({
-    direction: 'upload',
+const uploadValue = (over: Record<string, unknown> = {}): Record<string, unknown> => ({
     transferProfile: 'p',
     sources: ['s'],
     destination: 'd',
@@ -38,7 +37,7 @@ describe('PropertyForm', () => {
 
     it('renders and toggles a boolean field', () => {
         const onChange = vi.fn();
-        const { container } = render(<PropertyForm type="Job" value={jobValue({ force: false })} onChange={onChange} />);
+        const { container } = render(<PropertyForm type="Upload" value={uploadValue({ force: false })} onChange={onChange} />);
         const checkbox = createWrapper(container).findCheckbox();
         expect(checkbox?.findNativeInput().getElement()).not.toBeChecked();
         checkbox?.findLabel().click();
@@ -47,25 +46,25 @@ describe('PropertyForm', () => {
 
     it('renders an enum field as a select and fires onChange on selection', () => {
         const onChange = vi.fn();
-        const { container } = render(<PropertyForm type="Job" value={jobValue({ direction: 'upload' })} onChange={onChange} />);
+        const { container } = render(
+            <PropertyForm type="Checksum" value={{ sources: ['s'], algorithm: 'xxh3' }} onChange={onChange} />,
+        );
         const select = createWrapper(container).findSelect();
         expect(select).not.toBeNull();
         select!.openDropdown();
-        select!.selectOptionByValue('download');
-        expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ direction: 'download' }));
+        select!.selectOptionByValue('md5');
+        expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ algorithm: 'md5' }));
     });
 
     it('renders an enum field with no value selected without error', () => {
-        const value = jobValue();
-        delete value.direction;
-        const { container } = render(<PropertyForm type="Job" value={value} onChange={vi.fn()} />);
+        const { container } = render(<PropertyForm type="Checksum" value={{ sources: ['s'] }} onChange={vi.fn()} />);
         const select = createWrapper(container).findSelect();
-        expect(select?.findTrigger().getElement().textContent ?? '').not.toContain('upload');
+        expect(select?.findTrigger().getElement().textContent ?? '').not.toContain('md5');
     });
 
     it('edits a stringList field, splitting on commas', () => {
         const onChange = vi.fn();
-        const { container } = render(<PropertyForm type="Job" value={jobValue({ sources: [] })} onChange={onChange} />);
+        const { container } = render(<PropertyForm type="Upload" value={uploadValue({ sources: [] })} onChange={onChange} />);
         // sources is the stringList field; it is the only input whose label is "sources".
         const field = createWrapper(container)
             .findAllFormFields()
@@ -75,7 +74,7 @@ describe('PropertyForm', () => {
     });
 
     it('renders camelCase schema keys as humanized Title Case labels', () => {
-        const { container } = render(<PropertyForm type="Job" value={jobValue()} onChange={vi.fn()} />);
+        const { container } = render(<PropertyForm type="Upload" value={uploadValue()} onChange={vi.fn()} />);
         const labels = createWrapper(container)
             .findAllFormFields()
             .map((f) => f.findLabel()?.getElement().textContent ?? '');

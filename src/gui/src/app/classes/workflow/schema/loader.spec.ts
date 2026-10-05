@@ -20,8 +20,9 @@ describe('workflow schema loader', () => {
         expect(WORKFLOW_SCHEMA.$id).toBe('https://fme.dev/schemas/workflow/v1.json');
     });
 
-    it('exposes the four v1 step types from the schema enum', () => {
-        expect(STEP_TYPES).toEqual(['Job',
+    it('exposes the five v1 step types from the schema enum', () => {
+        expect(STEP_TYPES).toEqual(['Upload',
+            'Download',
             'Checksum',
             'Sleep',
             'InventoryReport']);
@@ -40,9 +41,8 @@ describe('workflow schema loader', () => {
                 steps: [
                     {
                         id: 'ingest',
-                        type: 'Job',
+                        type: 'Upload',
                         with: {
-                            direction: 'upload',
                             transferProfile: 'prod',
                             sources: ['/vol/card-a'],
                             destination: 'shows/x/day-012',

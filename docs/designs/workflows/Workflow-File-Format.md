@@ -86,9 +86,8 @@ spec:
   steps:
     - id: ingest-cards               # stable, unique within the file
       name: Ingest camera cards
-      type: Job                      # the discriminator
+      type: Upload                   # the discriminator (transfer direction)
       with:
-        direction: upload
         transferProfile: prod-us-west-2
         sources:
           - /Volumes/CARD_A
@@ -100,9 +99,8 @@ spec:
 
     - id: push-proxies
       name: Push proxies to review
-      type: Job
+      type: Upload
       with:
-        direction: upload
         transferProfile: review-bucket
         sources:
           - "/mnt/proxies/day-${params.day}"
@@ -126,8 +124,8 @@ Every step is the same envelope regardless of `type`. Only `with` changes shape.
 | Field | Required | Meaning |
 |-------|----------|---------|
 | `id` | yes | Stable identifier, unique within the file. Referenced by `dependsOn`. This is the design-time step id, not the runtime job id. |
-| `name` | no | Human-readable label. For `Job` steps this maps to `Job.Name`. |
-| `type` | yes | Discriminator selecting the payload schema and the executor. v1 defines `Job`, `Checksum`, `Sleep`, and `InventoryReport`; the registry is open. |
+| `name` | no | Human-readable label. For `Upload` and `Download` steps this maps to `Job.Name`. |
+| `type` | yes | Discriminator selecting the payload schema and the executor. v1 defines `Upload`, `Download`, `Checksum`, `Sleep`, and `InventoryReport`; the registry is open. |
 | `with` | yes | Type-specific payload. Its schema is selected by `type`. |
 | `dependsOn` | no | List of step `id`s that must complete before this step is eligible. Empty or absent means eligible immediately. |
 | `continueOnError` | no | If true, a failure in this step does not fail the overall run and does not abort steps that do not depend on it. Default false. |
@@ -136,19 +134,34 @@ Substitution is forbidden in `type`, `id`, and `dependsOn` so that the DAG shape
 and the published schema remain statically analyzable. This is enforced
 structurally by the validator, not left to convention.
 
-## The `Job` step payload
+## The `Upload` and `Download` step payloads
 
-The `Job` payload maps 1:1 to the internal `jobmanagertypes.JobConfig`, so there
-is no lossy translation between a workflow step and a submitted job.
+The `Upload` and `Download` payloads each map 1:1 to the internal
+`jobmanagertypes.JobConfig`, so there is no lossy translation between a workflow
+step and a submitted job. The transfer direction is the step `type`, not a `with`
+field: an `Upload` step sets `Direction=upload` and a `Download` step sets
+`Direction=download`. Each step carries only the fields valid for its direction,
+so a misplaced field (for example `uploadBasePath` on a `Download`) is a schema
+error rather than a silently ignored value.
+
+`Upload` moves local `sources` into the transfer profile's S3 bucket:
 
 | `with` field | Maps to `JobConfig` | Notes |
 |--------------|---------------------|-------|
-| `direction` | `Direction` | Enum: `upload` or `download`. |
-| `transferProfile` | resolved to `TransferProfile` by name at runtime | Referenced by name only. See "Portability". |
-| `sources` | `Sources` | Non-empty list of strings. |
-| `destination` | `Destination` | Required. |
-| `uploadBasePath` | `UploadBasePath` | Upload only. |
-| `s3PrefixToTrim` | `S3PrefixToTrim` | Download only. |
+| `transferProfile` | resolved to `TransferProfile` by name at runtime | Referenced by name only. The S3 bucket comes from the profile, not from any field here. See "Portability". |
+| `sources` | `Sources` | Non-empty list of local paths. |
+| `destination` | `Destination` | Required. S3 **key prefix** within the profile's bucket; NOT a bucket name and NOT an `s3://` URI. |
+| `uploadBasePath` | `UploadBasePath` | Local prefix stripped from each source before the destination prefix is applied. |
+| `force` | `Force` | Default false. |
+
+`Download` moves S3 `sources` into a local folder:
+
+| `with` field | Maps to `JobConfig` | Notes |
+|--------------|---------------------|-------|
+| `transferProfile` | resolved to `TransferProfile` by name at runtime | Referenced by name only. The S3 bucket comes from the profile, not from any field here. See "Portability". |
+| `sources` | `Sources` | Non-empty list of S3 keys or prefixes. |
+| `destination` | `Destination` | Required. Local filesystem **folder**; NOT an S3 location. |
+| `s3PrefixToTrim` | `S3PrefixToTrim` | S3 key prefix stripped from each object's key before it is joined to the local destination folder. |
 | `force` | `Force` | Default false. |
 
 ### Portability

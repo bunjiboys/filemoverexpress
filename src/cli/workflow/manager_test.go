@@ -105,7 +105,7 @@ func (c *capturingExec) withFor(id string) map[string]any {
 }
 
 func managerFor(store RunStore) *WorkflowManager {
-	return NewWorkflowManager(store, Registry{StepSleep: instantExec{}, StepJob: instantExec{}}, 4, alwaysProfileOK)
+	return NewWorkflowManager(store, Registry{StepSleep: instantExec{}, StepUpload: instantExec{}}, 4, alwaysProfileOK)
 }
 
 // TestStartResolvesParamsBeforeExecution proves the engine runs RESOLVED steps: a Job step
@@ -115,7 +115,7 @@ func managerFor(store RunStore) *WorkflowManager {
 func TestStartResolvesParamsBeforeExecution(t *testing.T) {
 	store := newMemStore()
 	cap := newCapturingExec()
-	mgr := NewWorkflowManager(store, Registry{StepSleep: cap, StepJob: cap}, 4, alwaysProfileOK)
+	mgr := NewWorkflowManager(store, Registry{StepSleep: cap, StepUpload: cap}, 4, alwaysProfileOK)
 
 	_, verrs, err := mgr.Start([]byte(validRunYAML), FormatYAML, ScalarInputs(map[string]string{"day": "15"}))
 	if err != nil {
@@ -297,7 +297,7 @@ func (s *saveFailAfterFirst) Delete(id string) error               { return s.in
 // managerWithExec builds a manager whose Sleep and Job steps both run the given executor,
 // so a gatingExecutor can hold a run in flight for lifecycle tests.
 func managerWithExec(store RunStore, exec StepExecutor) *WorkflowManager {
-	return NewWorkflowManager(store, Registry{StepSleep: exec, StepJob: exec}, 4, alwaysProfileOK)
+	return NewWorkflowManager(store, Registry{StepSleep: exec, StepUpload: exec}, 4, alwaysProfileOK)
 }
 
 func TestWorkflowManagerListReturnsPersistedRuns(t *testing.T) {

@@ -163,14 +163,14 @@ func stringValues(value any) []string {
 	}
 }
 
-// profileErrors runs the transfer-profile preflight: every Job and InventoryReport step
-// names a transferProfile that must exist on the daemon (format doc "Portability"). A
-// missing profile is a PROFILE error naming the step.
+// profileErrors runs the transfer-profile preflight: every Upload, Download, and
+// InventoryReport step names a transferProfile that must exist on the daemon (format doc
+// "Portability"). A missing profile is a PROFILE error naming the step.
 func profileErrors(doc Document, resolved map[string]map[string]any, profileExists func(string) bool) []ValidationError {
 	var errs []ValidationError
 	for i := range doc.Spec.Steps {
 		step := doc.Spec.Steps[i]
-		if step.Type != StepJob && step.Type != StepInventoryReport {
+		if step.Type != StepUpload && step.Type != StepDownload && step.Type != StepInventoryReport {
 			continue
 		}
 		name := withString(resolved[step.ID], "transferProfile")
