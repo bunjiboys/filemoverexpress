@@ -54,6 +54,7 @@ func Validate(generic any, doc Document, params ParamInputs, profileExists func(
 	resolved, paramErrs := resolveSteps(doc, params)
 	errs = append(errs, paramErrs...)
 	errs = append(errs, pathSafetyErrors(resolved)...)
+	errs = append(errs, parameterProfileErrors(doc, params, profileExists)...)
 	errs = append(errs, profileErrors(doc, resolved, profileExists)...)
 	return errs
 }
@@ -180,6 +181,35 @@ func profileErrors(doc Document, resolved map[string]map[string]any, profileExis
 				Message: "unknown transfer profile: " + name,
 			})
 		}
+	}
+	return errs
+}
+
+// parameterProfileErrors runs the transfer-profile preflight at the PARAMETER level: a
+// transfer_profile parameter resolves to a profile name that must exist on the daemon.
+// Unlike profileErrors (which checks a step's resolved transferProfile field and reports
+// a step-scoped PROFILE error), this reports a KindParameter error naming the offending
+// parameter so a client can route it to that parameter's form field. An empty resolved
+// value (an unsupplied, non-required parameter) is not checked, mirroring the step-field
+// guard; a resolution failure is already reported by resolveSteps, so only parameters
+// that resolve cleanly to a non-empty string are checked here.
+func parameterProfileErrors(doc Document, params ParamInputs, profileExists func(string) bool) []ValidationError {
+	set, _ := resolveParamsWith(doc.Spec.Parameters, params)
+	var errs []ValidationError
+	for i := range doc.Spec.Parameters {
+		spec := doc.Spec.Parameters[i]
+		if spec.Type != ParamTransferProfile {
+			continue
+		}
+		name, ok := set[spec.Name].value.(string)
+		if !ok || name == "" || profileExists(name) {
+			continue
+		}
+		errs = append(errs, ValidationError{
+			Kind:      KindParameter,
+			Parameter: spec.Name,
+			Message:   "unknown transfer profile: " + name,
+		})
 	}
 	return errs
 }

@@ -239,24 +239,24 @@ func rawValue(spec Parameter, values map[string]string) (string, bool) {
 }
 
 // emptyForm handles a parameter with neither a user value nor a default. required is an
-// error; string/enum resolve to the empty string; bool/int/float have no empty form and
-// are an error (format doc "Parameter types").
+// error; string/enum/transfer_profile resolve to the empty string; bool/int/float have no
+// empty form and are an error (format doc "Parameter types").
 func emptyForm(spec Parameter) (resolvedParam, string) {
 	if spec.Required {
 		return resolvedParam{}, fmt.Sprintf("required parameter: %s", spec.Name)
 	}
-	if spec.Type == ParamString || spec.Type == ParamEnum {
+	if spec.Type == ParamString || spec.Type == ParamEnum || spec.Type == ParamTransferProfile {
 		return resolvedParam{value: ""}, ""
 	}
 	return resolvedParam{}, fmt.Sprintf("parameter has no value and no default: %s", spec.Name)
 }
 
 // coerce converts the raw string into the parameter's declared Go type: string stays a
-// string, int becomes int64, float becomes float64, bool becomes bool, enum stays a
-// string (membership is checked by checkConstraints).
+// string, int becomes int64, float becomes float64, bool becomes bool, enum and
+// transfer_profile stay strings (membership/profile existence is checked separately).
 func coerce(spec Parameter, raw string) (any, string) {
 	switch spec.Type {
-	case ParamString, ParamEnum:
+	case ParamString, ParamEnum, ParamTransferProfile:
 		return raw, ""
 	case ParamInt:
 		n, err := strconv.ParseInt(raw, 10, 64)

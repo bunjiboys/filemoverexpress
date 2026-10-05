@@ -146,6 +146,75 @@ spec:
 	assertKind(t, errs, KindSchema)
 }
 
+// transferProfileParamYAML declares a transfer_profile parameter and references it in the
+// Job step's transferProfile field. The resolved parameter value is both the step-field
+// value (checked by step profileErrors) and the parameter value (checked by the new
+// parameter-level profile preflight).
+const transferProfileParamYAML = `
+apiVersion: fme.dev/workflow/v1
+kind: Workflow
+spec:
+  parameters:
+    - name: profile
+      type: transfer_profile
+      required: true
+  steps:
+    - id: a
+      type: Job
+      with:
+        direction: upload
+        transferProfile: "${params.profile}"
+        sources: ["/mnt/x"]
+        destination: d
+`
+
+func TestValidateTransferProfileParamKnown(t *testing.T) {
+	// A transfer_profile parameter resolving to a known profile passes.
+	errs := validateSource(t, transferProfileParamYAML, map[string]string{"profile": "prod"}, alwaysProfileOK)
+	if len(errs) != 0 {
+		t.Fatalf("known transfer_profile parameter rejected: %v", errs)
+	}
+}
+
+func TestValidateTransferProfileParamUnknown(t *testing.T) {
+	// A transfer_profile parameter resolving to an unknown profile is a PARAMETER error
+	// routed to the parameter (its form field), distinct from the step-level PROFILE error.
+	errs := validateSource(t, transferProfileParamYAML, map[string]string{"profile": "ghost"},
+		func(name string) bool { return name == "prod" })
+	assertKind(t, errs, KindParameter)
+	found := false
+	for _, e := range errs {
+		if e.Kind == KindParameter && e.Parameter == "profile" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected a PARAMETER error naming parameter 'profile', got: %v", errs)
+	}
+}
+
+func TestValidateTransferProfileParamEmptyNotChecked(t *testing.T) {
+	// A non-required transfer_profile parameter with no value resolves to empty and is not
+	// checked against the profile set (mirrors the step-field name != "" guard), so a
+	// never-referenced empty profile parameter raises no profile error.
+	src := `
+apiVersion: fme.dev/workflow/v1
+kind: Workflow
+spec:
+  parameters:
+    - name: profile
+      type: transfer_profile
+  steps:
+    - id: a
+      type: Sleep
+      with: {duration: 1s}
+`
+	errs := validateSource(t, src, map[string]string{}, func(string) bool { return false })
+	if len(errs) != 0 {
+		t.Fatalf("empty transfer_profile parameter should not be profile-checked: %v", errs)
+	}
+}
+
 func TestVersionSupported(t *testing.T) {
 	if !VersionSupported("fme.dev/workflow/v1") {
 		t.Error("v1 should be supported")

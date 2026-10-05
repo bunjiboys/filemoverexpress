@@ -16,6 +16,15 @@ const (
 	ParamFloat  ParameterType = "float"
 	ParamBool   ParameterType = "bool"
 	ParamEnum   ParameterType = "enum"
+	// ParamTransferProfile is a scalar type whose value is the name of a TransferProfile
+	// configured on the executing daemon. It resolves and coerces exactly like a string
+	// (the value IS the profile name) and has an empty form; what distinguishes it is
+	// validation: the resolved value is checked against the daemon's live profile set at
+	// validate time (a KindParameter error names the parameter), and the runner GUI
+	// renders it as a transfer-profile dropdown rather than a free-text field instead of
+	// hardcoding the choices in an enum's `values`. See
+	// docs/designs/workflows/Workflow-File-Format.md.
+	ParamTransferProfile ParameterType = "transfer_profile"
 	// ParamStringArray is the one list parameter type in v1: it resolves to a []string
 	// so a whole-value reference can fill a list `with` position such as a Job or
 	// Checksum step's `sources`. Its `pattern` constraint, when set, is applied to every
