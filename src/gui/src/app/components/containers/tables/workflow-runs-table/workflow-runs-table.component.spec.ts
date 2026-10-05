@@ -29,7 +29,7 @@ function step(over: Partial<WorkflowStep> = {}): WorkflowStep {
         $typeName: 'fme.v1.WorkflowStep',
         stepId: 's1',
         name: 'Ingest',
-        type: 'Job',
+        type: 'Upload',
         status: WorkflowStepStatus.PENDING,
         jobId: '',
         error: '',
@@ -92,6 +92,7 @@ describe('WorkflowRunsTableComponent', () => {
         cancelWorkflowRun: ReturnType<typeof vi.fn>;
         pauseWorkflowRun: ReturnType<typeof vi.fn>;
         resumeWorkflowRun: ReturnType<typeof vi.fn>;
+        deleteWorkflowRun: ReturnType<typeof vi.fn>;
     };
     let notifications: Record<string, ReturnType<typeof vi.fn>>;
     let dialogOpen: ReturnType<typeof vi.fn>;
@@ -106,6 +107,7 @@ describe('WorkflowRunsTableComponent', () => {
             cancelWorkflowRun: vi.fn(() => of({runId: 'run-1', success: true, error: ''})),
             pauseWorkflowRun: vi.fn(() => of({runId: 'run-1', success: true, error: ''})),
             resumeWorkflowRun: vi.fn(() => of({runId: 'run-1', success: true, error: ''})),
+            deleteWorkflowRun: vi.fn(() => of({runId: 'run-1', success: true, error: ''})),
         };
         notifications = {success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn()};
         dialogOpen = vi.fn(() => ({afterClosed: () => of(true)}));
@@ -238,6 +240,46 @@ describe('WorkflowRunsTableComponent', () => {
         });
     });
 
+    describe('delete', () => {
+        function seedTerminalRun(runId = 'run-1'): void {
+            fmeClient.listWorkflowRuns.mockReturnValueOnce(of({runs: [
+                run({runId, status: WorkflowRunStatus.SUCCEEDED}),
+            ]}));
+            connectionState$.next(ConnectionState.CONNECTED);
+        }
+
+        it('removes a terminal run from the list on confirmed success', () => {
+            seedTerminalRun('run-1');
+            component.deleteRun(run({runId: 'run-1', status: WorkflowRunStatus.SUCCEEDED}));
+            expect(fmeClient.deleteWorkflowRun).toHaveBeenCalledWith('run-1');
+            expect(component.runs().map((r) => r.runId)).not.toContain('run-1');
+        });
+
+        it('does nothing when the confirmation is dismissed', () => {
+            dialogOpen.mockReturnValueOnce({afterClosed: () => of(false)});
+            seedTerminalRun('run-1');
+            component.deleteRun(run({runId: 'run-1', status: WorkflowRunStatus.SUCCEEDED}));
+            expect(fmeClient.deleteWorkflowRun).not.toHaveBeenCalled();
+            expect(component.runs().map((r) => r.runId)).toContain('run-1');
+        });
+
+        it('keeps the run and surfaces an inline row error when the daemon refuses the delete', () => {
+            fmeClient.deleteWorkflowRun.mockReturnValueOnce(of({runId: 'run-1', success: false, error: 'not finished'}));
+            seedTerminalRun('run-1');
+            component.deleteRun(run({runId: 'run-1', status: WorkflowRunStatus.SUCCEEDED}));
+            expect(component.runs().map((r) => r.runId)).toContain('run-1');
+            expect(component.rowErrors()['run-1']).toBe('not finished');
+        });
+
+        it('surfaces a row error when the delete RPC throws', () => {
+            fmeClient.deleteWorkflowRun.mockReturnValueOnce(throwError(() => new Error('offline')));
+            seedTerminalRun('run-1');
+            component.deleteRun(run({runId: 'run-1', status: WorkflowRunStatus.SUCCEEDED}));
+            expect(component.runs().map((r) => r.runId)).toContain('run-1');
+            expect(component.rowErrors()['run-1']).toContain('offline');
+        });
+    });
+
     describe('expand/collapse', () => {
         it('toggles the expanded run id', () => {
             const r = run({runId: 'run-1'});
@@ -245,6 +287,74 @@ describe('WorkflowRunsTableComponent', () => {
             expect(component.expandedRunId()).toBe('run-1');
             component.toggleExpand(r);
             expect(component.expandedRunId()).toBeNull();
+        });
+
+        it('renders the steps panel in the DOM only for the expanded run', () => {
+            fmeClient.listWorkflowRuns.mockReturnValueOnce(of({runs: [
+                run({
+                    runId: 'run-1',
+                    steps: [step({stepId: 's1', name: 'Ingest'})],
+                    // Timestamps present: the Started/Completed cells must render a real date
+                    // without the bigint*number crash that previously aborted the row stamp
+                    // (and with it the detail row), leaving the panel empty.
+                    started: {$typeName: 'google.protobuf.Timestamp', seconds: BigInt(1_700_000_000), nanos: 0},
+                    completed: {$typeName: 'google.protobuf.Timestamp', seconds: BigInt(1_700_000_500), nanos: 0},
+                }),
+            ]}));
+            connectionState$.next(ConnectionState.CONNECTED);
+            fixture.detectChanges();
+
+            const host: HTMLElement = fixture.nativeElement;
+            expect(host.querySelector('.run-steps')).toBeNull();
+
+            component.toggleExpand(run({runId: 'run-1'}));
+            fixture.detectChanges();
+
+            const steps = host.querySelector('.run-steps');
+            expect(steps).not.toBeNull();
+            expect(steps!.textContent).toContain('Ingest');
+
+            // The expanded panel's own container must be marked so the detail row's
+            // height-override styling applies (regression guard for the clipped panel).
+            expect(host.querySelector('.run-detail.expanded')).not.toBeNull();
+        });
+
+        it('renders Started/Completed dates for a run with timestamps (no bigint crash)', () => {
+            // Regression: the template did `ts.seconds * 1000` (bigint * number), which threw
+            // "Cannot mix BigInt and other types" and aborted rendering the whole row.
+            fmeClient.listWorkflowRuns.mockReturnValueOnce(of({runs: [
+                run({
+                    runId: 'run-1',
+                    started: {$typeName: 'google.protobuf.Timestamp', seconds: BigInt(1_700_000_000), nanos: 0},
+                    completed: {$typeName: 'google.protobuf.Timestamp', seconds: BigInt(1_700_000_500), nanos: 0},
+                }),
+            ]}));
+            connectionState$.next(ConnectionState.CONNECTED);
+
+            // Must not throw while rendering the date cells.
+            expect(() => fixture.detectChanges()).not.toThrow();
+
+            const metaCells = fixture.nativeElement.querySelectorAll('.run-meta');
+            // Started + Completed both rendered a non-placeholder value.
+            const texts = [...metaCells].map((c) => (c as HTMLElement).textContent?.trim());
+            expect(texts.some((t) => t && t !== '-')).toBe(true);
+        });
+
+        it('converts a Timestamp to a Date and null for a missing timestamp', () => {
+            const ts = {$typeName: 'google.protobuf.Timestamp' as const, seconds: BigInt(1_700_000_000), nanos: 0};
+            expect(component.runDate(ts)).toBeInstanceOf(Date);
+            expect(component.runDate(ts)!.getTime()).toBe(1_700_000_000_000);
+            expect(component.runDate(undefined)).toBeNull();
+        });
+
+        it('shows the no-steps placeholder for an expanded run with no steps', () => {
+            fmeClient.listWorkflowRuns.mockReturnValueOnce(of({runs: [run({runId: 'run-1', steps: []})]}));
+            connectionState$.next(ConnectionState.CONNECTED);
+            component.toggleExpand(run({runId: 'run-1'}));
+            fixture.detectChanges();
+
+            const host: HTMLElement = fixture.nativeElement;
+            expect(host.querySelector('.run-no-steps')).not.toBeNull();
         });
     });
 

@@ -173,6 +173,16 @@ export class WorkflowRunsTableComponent {
         this.expandedRunId.update((current) => (current === run.runId ? null : run.runId));
     }
 
+    /**
+     * Convert a protobuf Timestamp to a Date for the DatePipe. The template must NOT do
+     * `ts.seconds * 1000`: seconds is a bigint and `bigint * number` throws
+     * "Cannot mix BigInt and other types", which aborts the row stamp (and with it the
+     * multiTemplateDataRows detail row, leaving the expanded panel empty / 0px high).
+     */
+    runDate(ts: WorkflowRun['started']): Date | null {
+        return ts ? timestampDate(ts) : null;
+    }
+
     /** Whether a run is in a terminal state (controls hidden/disabled). */
     isTerminal(run: WorkflowRun): boolean {
         return TERMINAL_RUN_STATES.includes(run.status);
@@ -222,6 +232,40 @@ export class WorkflowRunsTableComponent {
         this.fmeClient.resumeWorkflowRun(run.runId).subscribe({
             next: (res) => this.reflectResult(run.runId, res.success, res.error),
             error: (err: unknown) => this.setRowError(run.runId, errorText(err)),
+        });
+    }
+
+    /**
+     * Remove a terminal run (SUCCEEDED / FAILED / CANCELLED) from the persisted store after
+     * a confirmation. Shown only for terminal runs; the daemon refuses a non-terminal run.
+     * On success the row is dropped from the live set; a daemon refusal surfaces inline.
+     */
+    deleteRun(run: WorkflowRun): void {
+        const data: Partial<ConfirmationModalData> = {
+            title: 'Remove workflow run?',
+            message: `This removes "${run.name}" from the runs list. It does not affect any files already `
+                + 'transferred. This cannot be undone.',
+            confirmText: 'Remove',
+            confirmClass: 'warn',
+            cancelText: 'Keep',
+        };
+        this.dialog.open<ConfirmationModalComponent, Partial<ConfirmationModalData>, boolean>(
+            ConfirmationModalComponent,
+            {data, width: '460px'},
+        ).afterClosed().subscribe((confirmed) => {
+            if (!confirmed) {
+                return;
+            }
+            this.fmeClient.deleteWorkflowRun(run.runId).subscribe({
+                next: (res) => {
+                    if (res.success) {
+                        this.removeRun(run.runId);
+                        return;
+                    }
+                    this.setRowError(run.runId, res.error || 'The run could not be removed.');
+                },
+                error: (err: unknown) => this.setRowError(run.runId, errorText(err)),
+            });
         });
     }
 
@@ -332,6 +376,20 @@ export class WorkflowRunsTableComponent {
             next.set(run.runId, run);
             return next;
         });
+    }
+
+    /** Drop a run from the live set and clean up its per-row state (after a delete). */
+    private removeRun(runId: string): void {
+        this.runsById.update((map) => {
+            if (!map.has(runId)) {
+                return map;
+            }
+            const next = new Map(map);
+            next.delete(runId);
+            return next;
+        });
+        this.clearRowError(runId);
+        this.expandedRunId.update((current) => (current === runId ? null : current));
     }
 }
 

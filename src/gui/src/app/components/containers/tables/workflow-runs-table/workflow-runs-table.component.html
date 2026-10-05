@@ -44,28 +44,26 @@
             <ng-container matColumnDef="created">
                 <th mat-header-cell *matHeaderCellDef>Started</th>
                 <td mat-cell *matCellDef="let run" class="run-meta">
-                    {{ run.started ? (run.started.seconds * 1000 | date: 'short') : '-' }}
+                    {{ runDate(run.started) ? (runDate(run.started) | date: 'short') : '-' }}
                 </td>
             </ng-container>
 
             <ng-container matColumnDef="completed">
                 <th mat-header-cell *matHeaderCellDef>Completed</th>
                 <td mat-cell *matCellDef="let run" class="run-meta">
-                    {{ run.completed ? (run.completed.seconds * 1000 | date: 'short') : '-' }}
+                    {{ runDate(run.completed) ? (runDate(run.completed) | date: 'short') : '-' }}
                 </td>
             </ng-container>
 
             <ng-container matColumnDef="actions">
                 <th mat-header-cell *matHeaderCellDef></th>
                 <td mat-cell *matCellDef="let run" class="run-actions">
-                    @if (!isTerminal(run)) {
-                        <button mat-icon-button class="run-row-menu-btn" aria-label="Run actions"
-                                matTooltip="Actions" [matTooltipShowDelay]="500"
-                                [matMenuTriggerFor]="runMenu" [matMenuTriggerData]="{run: run}"
-                                (click)="$event.stopPropagation()">
-                            <mat-icon>more_vert</mat-icon>
-                        </button>
-                    }
+                    <button mat-icon-button class="run-row-menu-btn" aria-label="Run actions"
+                            matTooltip="Actions" [matTooltipShowDelay]="500"
+                            [matMenuTriggerFor]="runMenu" [matMenuTriggerData]="{run: run}"
+                            (click)="$event.stopPropagation()">
+                        <mat-icon>more_vert</mat-icon>
+                    </button>
                 </td>
             </ng-container>
 
@@ -117,7 +115,7 @@
 </div>
 
 <!-- Per-run action menu: Cancel (RUNNING/PAUSED), Pause + Pause transfers too (RUNNING),
-     Resume (PAUSED). Hidden entirely once the run is terminal. -->
+     Resume (PAUSED), Remove (terminal runs only). -->
 <mat-menu #runMenu="matMenu">
     <ng-template matMenuContent let-run="run">
         @if (run.status === RunStatus.RUNNING) {
@@ -141,6 +139,12 @@
             <button mat-menu-item (click)="cancelRun(run)">
                 <mat-icon class="material-icons-outlined">cancel</mat-icon>
                 Cancel run
+            </button>
+        }
+        @if (isTerminal(run)) {
+            <button mat-menu-item (click)="deleteRun(run)">
+                <mat-icon class="material-icons-outlined">delete</mat-icon>
+                Remove run
             </button>
         }
     </ng-template>

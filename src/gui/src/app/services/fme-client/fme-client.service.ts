@@ -121,6 +121,8 @@ import {
 import {
     CancelWorkflowRunRequestSchema,
     CancelWorkflowRunResponse,
+    DeleteWorkflowRunRequestSchema,
+    DeleteWorkflowRunResponse,
     ListWorkflowRunsRequestSchema,
     ListWorkflowRunsResponse,
     PauseWorkflowRunRequestSchema,
@@ -1047,6 +1049,33 @@ export class FmeClientService {
         this.connectClient.resumeWorkflowRun(
             req,
             (err: ConnectError | undefined, res: ResumeWorkflowRunResponse) => {
+                if (err) {
+                    sub.error(err);
+                    return;
+                }
+
+                sub.next(res);
+                sub.complete();
+            },
+        );
+
+        return sub.asObservable();
+    }
+
+    /** Delete a terminal run's record from the store. Refused by the daemon if not finished. */
+    deleteWorkflowRun(runId: string): Observable<DeleteWorkflowRunResponse> {
+        const sub = new Subject<DeleteWorkflowRunResponse>();
+        const req = create(DeleteWorkflowRunRequestSchema);
+        req.runId = runId;
+
+        if (!this.connectClient) {
+            sub.error(new StreamingClientError(StreamingClientErrorType.StreamingClientNull));
+            return sub.asObservable();
+        }
+
+        this.connectClient.deleteWorkflowRun(
+            req,
+            (err: ConnectError | undefined, res: DeleteWorkflowRunResponse) => {
                 if (err) {
                     sub.error(err);
                     return;

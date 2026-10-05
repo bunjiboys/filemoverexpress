@@ -319,6 +319,43 @@ func TestWorkflowManagerListReturnsPersistedRuns(t *testing.T) {
 	}
 }
 
+func TestWorkflowManagerDeleteTerminalRun(t *testing.T) {
+	store := newMemStore()
+	mgr := managerFor(store)
+	if err := store.Save(&WorkflowRun{RunID: "wfr-done", Status: RunSucceeded}); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	if err := mgr.Delete("wfr-done"); err != nil {
+		t.Fatalf("Delete terminal run: %v", err)
+	}
+	if _, err := store.Load("wfr-done"); err == nil {
+		t.Fatal("expected the run to be removed from the store")
+	}
+}
+
+func TestWorkflowManagerDeleteRefusesNonTerminalRun(t *testing.T) {
+	for _, status := range []RunStatus{RunPending, RunRunning, RunPaused} {
+		store := newMemStore()
+		mgr := managerFor(store)
+		if err := store.Save(&WorkflowRun{RunID: "wfr-live", Status: status}); err != nil {
+			t.Fatalf("seed: %v", err)
+		}
+		if err := mgr.Delete("wfr-live"); err == nil {
+			t.Fatalf("Delete should refuse a %s run", status)
+		}
+		if _, err := store.Load("wfr-live"); err != nil {
+			t.Fatalf("a refused delete must leave the run in the store (status %s)", status)
+		}
+	}
+}
+
+func TestWorkflowManagerDeleteUnknownRun(t *testing.T) {
+	mgr := managerFor(newMemStore())
+	if err := mgr.Delete("wfr-missing"); err == nil {
+		t.Fatal("expected an error deleting an unknown run")
+	}
+}
+
 func TestWorkflowManagerCancelActiveRun(t *testing.T) {
 	store := newMemStore()
 	exec := newGatingExecutor("sleep-step")

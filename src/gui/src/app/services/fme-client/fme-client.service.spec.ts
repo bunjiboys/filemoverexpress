@@ -433,6 +433,13 @@ describe('FmeClientService', () => {
             await firstValueFrom(service.resumeWorkflowRun('r1'));
             expect(fn.mock.calls[0][0].runId).toBe('r1');
         });
+
+        it('deleteWorkflowRun forwards the run id', async () => {
+            const fn = unarySuccess('deleteWorkflowRun', {runId: 'r1', success: true, error: ''});
+            const res = await firstValueFrom(service.deleteWorkflowRun('r1'));
+            expect(res.success).toBe(true);
+            expect(fn.mock.calls[0][0].runId).toBe('r1');
+        });
     });
 
     // -----------------------------------------------------------------------

@@ -250,6 +250,21 @@ message ResumeWorkflowRunResponse {
     string error = 3;
 }
 
+// Delete a run record from the persisted store. Only a TERMINAL run (SUCCEEDED / FAILED /
+// CANCELLED) may be deleted; deleting a run that is still PENDING / RUNNING / PAUSED is
+// refused via the error field so an in-flight run is never dropped out from under the
+// engine. Deleting an unknown id is also reported in error.
+message DeleteWorkflowRunRequest {
+    string run_id = 1;
+}
+
+message DeleteWorkflowRunResponse {
+    string run_id = 1;
+    bool success = 2;
+    // Set when the run id is unknown or not terminal; empty on success.
+    string error = 3;
+}
+
 // ---- Run lifecycle events (carried over the existing ListEvents stream) ----
 // These are run-level STATE TRANSITIONS, not progress ticks. Byte progress continues to
 // ride JobProgressEvent tagged with workflow_run_id / workflow_step_id.

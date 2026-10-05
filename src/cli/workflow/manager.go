@@ -143,6 +143,24 @@ func (m *WorkflowManager) Resume(runID string) error {
 	return nil
 }
 
+// Delete removes a terminal run's record from the store. It errors when the run id is
+// unknown or when the run is not terminal (still PENDING / RUNNING / PAUSED), so an
+// in-flight run is never deleted out from under the engine. A run that is still being
+// tracked as an active engine is by definition not terminal and is refused on that basis.
+func (m *WorkflowManager) Delete(runID string) error {
+	run, err := m.store.Load(runID)
+	if err != nil {
+		return fmt.Errorf("workflow: run %s not found", runID)
+	}
+	if !run.Status.Terminal() {
+		return fmt.Errorf("workflow: run %s is not finished (status %s); only a terminal run can be removed", runID, run.Status)
+	}
+	if err := m.store.Delete(runID); err != nil {
+		return fmt.Errorf("workflow: deleting run %s: %w", runID, err)
+	}
+	return nil
+}
+
 // activeEngine returns the engine driving an in-flight run, or an error when no run is
 // active for the id. A run that already finished has been removed from the engines map by
 // finish, so a lifecycle op on it is reported as a no-longer-active error (idempotent-once-

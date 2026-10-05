@@ -51,6 +51,7 @@ service FmeService {
     rpc CancelWorkflowRun (fme.v1.CancelWorkflowRunRequest) returns (fme.v1.CancelWorkflowRunResponse) {}
     rpc PauseWorkflowRun (fme.v1.PauseWorkflowRunRequest) returns (fme.v1.PauseWorkflowRunResponse) {}
     rpc ResumeWorkflowRun (fme.v1.ResumeWorkflowRunRequest) returns (fme.v1.ResumeWorkflowRunResponse) {}
+    rpc DeleteWorkflowRun (fme.v1.DeleteWorkflowRunRequest) returns (fme.v1.DeleteWorkflowRunResponse) {}
 }
 
 // ListEventsRequest and Response must be in the main file, as it uses values from each sub-file and would otherwise
