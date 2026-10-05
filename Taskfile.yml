@@ -35,7 +35,24 @@ tasks:
 
   generate:
     desc: Run all code generation
-    deps: [proto:generate, generate:wails-bindings]
+    deps: [schema:sync, proto:generate, generate:wails-bindings]
+
+  schema:sync:
+    desc: Copy the authoritative workflow schema into each consumer package (CLI/GUI/builder)
+    cmds:
+      - node scripts/sync-schema.mjs
+    sources:
+      - schemas/workflow/v1.json
+    generates:
+      - src/cli/workflow/schema/v1.json
+      - src/gui/src/app/classes/workflow/schema/v1.json
+      - src/workflow-builder/src/schema/v1.json
+
+  schema:check:
+    desc: Fail if any consumer's workflow schema copy has drifted from the source of truth
+    cmds:
+      - node scripts/sync-schema.mjs --check
+
 
   generate:wails-bindings:
     desc: Generate Wails bindings for the frontend
