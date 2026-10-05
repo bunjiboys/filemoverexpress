@@ -1,10 +1,11 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { FmeClientService } from '@services/fme-client/fme-client.service';
+import { BookmarksService } from '@services/bookmarks/bookmarks.service';
 import { FSFolder } from '@classes/grpc';
 import { FSFile } from '@app/classes/grpc/fsfile';
 import { FileBrowserObjectType, FileBrowserState } from '@app/components/layout/file-browser/file-browser.interfaces';
-import { of, throwError } from 'rxjs';
+import { BehaviorSubject, of, throwError } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
     WorkflowSourcePickerModalComponent,
@@ -21,15 +22,18 @@ describe('WorkflowSourcePickerModalComponent', () => {
 
     let listDaemonFolder: ReturnType<typeof vi.fn>;
     let close: ReturnType<typeof vi.fn>;
+    let current$: BehaviorSubject<{favoritePaths: string[]}>;
 
     function build(data: WorkflowSourcePickerData = {initialDirectory: '/vol'}): void {
         listDaemonFolder = vi.fn(() => of(folder('/vol', ['/vol/cardA', '/vol/cardB'], [new FSFile('/vol/notes.txt', 10n, null)])));
         close = vi.fn();
+        current$ = new BehaviorSubject<{favoritePaths: string[]}>({favoritePaths: ['/media/clips', '/vol/archive']});
 
         TestBed.configureTestingModule({
             imports: [WorkflowSourcePickerModalComponent],
             providers: [
                 {provide: FmeClientService, useValue: {listDaemonFolder}},
+                {provide: BookmarksService, useValue: {current: current$.asObservable()}},
                 {provide: MatDialogRef, useValue: {close}},
                 {provide: MAT_DIALOG_DATA, useValue: data},
             ],
@@ -117,6 +121,29 @@ describe('WorkflowSourcePickerModalComponent', () => {
         it('cancels without returning a selection', () => {
             component.cancel();
             expect(close).toHaveBeenCalledWith(undefined);
+        });
+    });
+
+    describe('favorite paths', () => {
+        it('exposes the current bookmark favorite paths', () => {
+            expect(component.favoritePaths()).toEqual(['/media/clips', '/vol/archive']);
+        });
+
+        it('navigates to a selected favorite path', () => {
+            component.goToFavorite('/media/clips');
+            expect(listDaemonFolder).toHaveBeenCalledWith('/media/clips');
+        });
+
+        it('ignores an empty favorite selection', () => {
+            listDaemonFolder.mockClear();
+            component.goToFavorite('');
+            expect(listDaemonFolder).not.toHaveBeenCalled();
+        });
+
+        it('reflects an empty favorites list when the bookmark has none', () => {
+            current$.next({favoritePaths: []});
+            fixture.detectChanges();
+            expect(component.favoritePaths()).toEqual([]);
         });
     });
 });

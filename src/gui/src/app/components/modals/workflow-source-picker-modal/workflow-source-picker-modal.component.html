@@ -10,6 +10,20 @@
         Navigate and select one or more paths. Click, shift-click a range, or cmd/ctrl-click to toggle.
     </p>
 
+    @if (favoritePaths().length > 0) {
+        <label class="fme-source-picker-favorites">
+            <span class="fme-source-picker-favorites-label">Favorites</span>
+            <select class="fme-source-picker-favorites-select"
+                    aria-label="Jump to a favorite path"
+                    (change)="goToFavorite($any($event.target).value); $any($event.target).value = ''">
+                <option value="">Jump to a favorite path...</option>
+                @for (fav of favoritePaths(); track fav) {
+                    <option [value]="fav">{{ fav }}</option>
+                }
+            </select>
+        </label>
+    }
+
     <div class="fme-source-picker-browser">
         <fme-file-browser
             fileBrowserType="unknown"

@@ -33,6 +33,35 @@
     color: custom-fields.$placeholder-text-color;
 }
 
+.fme-source-picker-favorites {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.fme-source-picker-favorites-label {
+    font-size: 12px;
+    color: custom-fields.$placeholder-text-color;
+}
+
+.fme-source-picker-favorites-select {
+    flex: 1 1 auto;
+    box-sizing: border-box;
+    height: custom-fields.$form-field-height;
+    padding: custom-fields.$form-field-padding;
+    background: custom-fields.$regular-background-color;
+    border: solid 1px custom-fields.$form-field-border-color;
+    border-radius: custom-fields.$form-field-border-radius;
+    color: custom-fields.$regular-text-color;
+    font-family: fonts.$font-family;
+    font-size: 12px;
+
+    &:focus {
+        outline: none;
+        border-color: variables.$active;
+    }
+}
+
 .fme-source-picker-browser {
     flex: 1 1 auto;
     height: 360px;

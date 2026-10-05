@@ -1,8 +1,11 @@
-import { ChangeDetectionStrategy, Component, inject, ViewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, Signal, ViewChild } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { map } from 'rxjs';
 import { MAT_DIALOG_DATA, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogRef, MatDialogTitle } from '@angular/material/dialog';
 import { MatIcon } from '@angular/material/icon';
 import { MatIconButton } from '@angular/material/button';
 import { FmeClientService } from '@services/fme-client/fme-client.service';
+import { BookmarksService } from '@services/bookmarks/bookmarks.service';
 import { FSFolder } from '@classes/grpc';
 import {
     FileBrowserData,
@@ -46,11 +49,22 @@ export interface WorkflowSourcePickerData {
 })
 export class WorkflowSourcePickerModalComponent {
     private fmeClient = inject(FmeClientService);
+    private bookmarks = inject(BookmarksService);
     private dialogRef = inject<MatDialogRef<WorkflowSourcePickerModalComponent, string[] | undefined>>(MatDialogRef);
     private data = inject<WorkflowSourcePickerData>(MAT_DIALOG_DATA);
 
     /** The embedded browser, read for its multi-selection on confirm. */
     @ViewChild(FileBrowserComponent) browser?: FileBrowserComponent;
+
+    /**
+     * The current bookmark's favorite paths, offered as a quick-jump dropdown so the user
+     * can hop straight to a saved location instead of navigating from the root. Seeded
+     * empty until the current bookmark emits.
+     */
+    readonly favoritePaths: Signal<string[]> = toSignal(
+        this.bookmarks.current.pipe(map((bookmark) => bookmark.favoritePaths ?? [])),
+        {initialValue: [] as string[]},
+    );
 
     /** The directory currently listed. */
     currentDirectory = '';
@@ -113,5 +127,13 @@ export class WorkflowSourcePickerModalComponent {
     /** Close without returning a selection. */
     cancel(): void {
         this.dialogRef.close(undefined);
+    }
+
+    /** Jump the browser to a chosen favorite path (ignores an empty selection). */
+    goToFavorite(path: string): void {
+        if (!path) {
+            return;
+        }
+        this.loadDirectory(path);
     }
 }
