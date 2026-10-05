@@ -16,6 +16,33 @@ func TestValidateAgainstSchemaValid(t *testing.T) {
 	}
 }
 
+// A transfer_profile parameter is a scalar type that carries no values/pattern/min/max
+// (its allowed set is the daemon's live profiles, resolved at validate time), so a bare
+// declaration with only name/type must pass schema validation.
+func TestValidateAgainstSchemaAcceptsTransferProfileParam(t *testing.T) {
+	const src = `
+apiVersion: fme.dev/workflow/v1
+kind: Workflow
+spec:
+  parameters:
+    - name: profile
+      type: transfer_profile
+      required: true
+      default: prod
+  steps:
+    - id: a
+      type: Sleep
+      with: {duration: 1s}
+`
+	generic, _, err := Parse([]byte(src), FormatYAML)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if err := ValidateAgainstSchema(generic); err != nil {
+		t.Fatalf("valid transfer_profile parameter rejected: %v", err)
+	}
+}
+
 func TestValidateAgainstSchemaRejects(t *testing.T) {
 	cases := map[string]string{
 		"bad apiVersion": `
@@ -85,6 +112,32 @@ spec:
   parameters:
     - name: env
       type: enum
+  steps:
+    - id: a
+      type: Sleep
+      with: {duration: 1s}
+`,
+		"transfer_profile param with values": `
+apiVersion: fme.dev/workflow/v1
+kind: Workflow
+spec:
+  parameters:
+    - name: profile
+      type: transfer_profile
+      values: [prod, staging]
+  steps:
+    - id: a
+      type: Sleep
+      with: {duration: 1s}
+`,
+		"transfer_profile param with pattern": `
+apiVersion: fme.dev/workflow/v1
+kind: Workflow
+spec:
+  parameters:
+    - name: profile
+      type: transfer_profile
+      pattern: "^p.*"
   steps:
     - id: a
       type: Sleep

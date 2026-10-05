@@ -95,7 +95,8 @@
                         "float",
                         "bool",
                         "enum",
-                        "string_array"
+                        "string_array",
+                        "transfer_profile"
                     ]
                 },
                 "required": {
