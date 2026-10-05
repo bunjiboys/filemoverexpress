@@ -58,8 +58,7 @@
     }
 }
 
-.fme-scalar-input,
-.fme-scalar-select {
+.fme-scalar-input {
     width: 100%;
     box-sizing: border-box;
     height: custom-fields.$form-field-height;
@@ -83,6 +82,10 @@
     &.fme-invalid {
         border-color: variables.$red-500;
     }
+}
+
+.fme-scalar-enum {
+    width: 100%;
 }
 
 .fme-scalar-toggle-label {

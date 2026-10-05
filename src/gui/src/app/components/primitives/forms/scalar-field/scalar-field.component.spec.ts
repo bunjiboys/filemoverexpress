@@ -64,18 +64,28 @@ describe('ScalarFieldComponent', () => {
             expect(fixture.nativeElement.querySelector('input.fme-scalar-toggle[type="checkbox"]')).toBeTruthy();
         });
 
-        it('renders a select for an enum', () => {
+        it('renders a mat-select for an enum', () => {
             build(scalarParam({type: 'enum', values: ['a', 'b'], required: false}));
-            const select = fixture.nativeElement.querySelector('select.fme-scalar-select');
-            expect(select).toBeTruthy();
-            // One option per value plus the empty placeholder.
-            expect(select.querySelectorAll('option')).toHaveLength(3);
+            expect(fixture.nativeElement.querySelector('mat-select')).toBeTruthy();
+            expect(fixture.nativeElement.querySelector('mat-form-field.fme-scalar-enum')).toBeTruthy();
         });
 
-        it('omits the empty enum placeholder when the field is required', () => {
-            build(scalarParam({type: 'enum', values: ['a', 'b'], required: true}), 'a');
-            const select = fixture.nativeElement.querySelector('select.fme-scalar-select');
-            expect(select.querySelectorAll('option')).toHaveLength(2);
+        it('marks a required enum with no default as required', () => {
+            build(scalarParam({type: 'enum', values: ['a', 'b'], required: true}));
+            expect(fixture.nativeElement.querySelector('.fme-required-marker')).toBeTruthy();
+        });
+
+        it('does not mark an optional enum as required', () => {
+            build(scalarParam({type: 'enum', values: ['a', 'b'], required: false}));
+            expect(fixture.nativeElement.querySelector('.fme-required-marker')).toBeNull();
+        });
+
+        it('emits the chosen enum value via onText', () => {
+            build(scalarParam({type: 'enum', values: ['a', 'b'], required: false}));
+            const changed = vi.fn();
+            component.valueChange.subscribe(changed);
+            component.onText('b');
+            expect(changed).toHaveBeenCalledWith('b');
         });
     });
 

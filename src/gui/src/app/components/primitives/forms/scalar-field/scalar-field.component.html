@@ -27,18 +27,18 @@
             </label>
         }
         @case ('enum') {
-            <select class="fme-scalar-select"
-                    [class.fme-invalid]="error() !== null"
-                    [attr.aria-label]="parameter().name"
-                    [value]="value()"
-                    (change)="onText($any($event.target).value)">
-                @if (!required()) {
-                    <option value=""></option>
-                }
-                @for (opt of enumValues(); track opt) {
-                    <option [value]="opt">{{ opt }}</option>
-                }
-            </select>
+            <mat-form-field class="fme-scalar-enum" color="accent" appearance="outline" subscriptSizing="dynamic">
+                <mat-select [attr.aria-label]="parameter().name"
+                            [value]="value()"
+                            (selectionChange)="onText($event.value)">
+                    @if (!required()) {
+                        <mat-option value=""></mat-option>
+                    }
+                    @for (opt of enumValues(); track opt) {
+                        <mat-option [value]="opt">{{ opt }}</mat-option>
+                    }
+                </mat-select>
+            </mat-form-field>
         }
         @case ('int') {
             <input class="fme-scalar-input" type="number" [step]="numberStep()"

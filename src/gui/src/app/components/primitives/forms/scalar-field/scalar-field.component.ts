@@ -1,5 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatFormField } from '@angular/material/form-field';
+import { MatOption, MatSelect } from '@angular/material/select';
 import {
     initialFieldValue,
     isFieldOverridden,
@@ -33,6 +35,9 @@ import {
     changeDetection: ChangeDetectionStrategy.Eager,
     imports: [
         FormsModule,
+        MatFormField,
+        MatSelect,
+        MatOption,
     ],
 })
 export class ScalarFieldComponent {
