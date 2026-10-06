@@ -51,12 +51,16 @@ tasks:
       - wails3 generate icons -input appicon.png -macfilename darwin/icons.icns -windowsfilename windows/icon.ico
 
   dev:frontend:
-    summary: Runs the frontend in development mode
+    summary: Runs the frontend in development mode (binds the wails3 dev vite port for HMR proxying)
     dir: ../gui
     deps:
       - task: install:frontend:deps
+      - task: generate:bindings
     cmds:
-      - npx ng serve --configuration development
+      # Bind to the exact port wails3 dev proxies (WAILS_VITE_PORT, default 4200) on IPv4 so
+      # the dev proxy's forced tcp4 localhost dial connects, and so ng serve fails fast if the
+      # port is taken (the strictPort behaviour Wails relies on) instead of drifting ports.
+      - npx ng serve --configuration development --host 127.0.0.1 --port {{.WAILS_VITE_PORT | default 4200}}
 
   update:build-assets:
     summary: Updates the build assets

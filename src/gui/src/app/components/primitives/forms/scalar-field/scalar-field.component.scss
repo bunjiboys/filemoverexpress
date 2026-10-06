@@ -16,6 +16,7 @@
     gap: 8px;
 }
 
+/* Standalone label for the bool toggle, which has no mat-form-field to host a mat-label. */
 .fme-field-label {
     display: inline-flex;
     align-items: center;
@@ -30,7 +31,8 @@
     font-weight: 700;
 }
 
-.fme-field-type {
+/* Type badge in the header (the field name now lives in the mat-label). */
+.fme-field-type-badge {
     font-size: 10px;
     font-weight: 500;
     color: custom-fields.$placeholder-text-color;

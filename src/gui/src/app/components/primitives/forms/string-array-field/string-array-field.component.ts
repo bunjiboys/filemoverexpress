@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, input, output } from '@an
 import { FormsModule } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
 import { MatChipGrid, MatChipInput, MatChipRemove, MatChipRow } from '@angular/material/chips';
-import { MatFormField } from '@angular/material/form-field';
+import { MatFormField, MatLabel, MatSuffix } from '@angular/material/form-field';
 import { MatIcon } from '@angular/material/icon';
 import {
     initialFieldValue,
@@ -36,7 +36,9 @@ import { WorkflowParameter } from '@app/classes/workflow/workflow-parameter.mode
         MatChipInput,
         MatChipRemove,
         MatFormField,
+        MatLabel,
         MatIcon,
+        MatSuffix,
     ],
 })
 export class StringArrayFieldComponent {

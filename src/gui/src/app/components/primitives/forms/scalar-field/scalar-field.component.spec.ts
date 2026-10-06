@@ -178,11 +178,12 @@ describe('ScalarFieldComponent', () => {
             expect(fixture.nativeElement.querySelector('.fme-field-error')).toBeNull();
         });
 
-        it('shows the name and type in the label', () => {
+        it('shows the name in the mat-label and the type in the header badge', () => {
             build(scalarParam({type: 'int', default: 0}), '0');
-            const label = fixture.nativeElement.querySelector('.fme-field-label').textContent;
+            const label = fixture.nativeElement.querySelector('mat-form-field mat-label').textContent;
             expect(label).toContain('bucket');
-            expect(label).toContain('int');
+            const typeBadge = fixture.nativeElement.querySelector('.fme-field-type-badge').textContent;
+            expect(typeBadge).toContain('int');
         });
 
         it('marks the label required for an effectively-required field', () => {

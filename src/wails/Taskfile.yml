@@ -38,9 +38,99 @@ tasks:
       - task: "{{OS}}:run"
 
   dev:
-    summary: Runs the application in development mode
+    summary: Runs the application in development mode (Go hot-rebuild + Angular ng serve with HMR)
     cmds:
+      # wails3 dev reads build/config.yml (dev_mode block), sets WAILS_VITE_PORT and
+      # FRONTEND_DEVSERVER_URL=http://localhost:<port>, then drives the file watcher. The
+      # watcher runs dev:frontend as a background process (ng serve, survives Go rebuilds)
+      # and rebuilds/reruns the Go binary on *.go changes. The dev-tagged asset server
+      # reverse-proxies the webview to ng serve, so the frontend hot-reloads via Angular HMR.
       - wails3 dev -config ./build/config.yml -port {{.VITE_PORT}}
+
+  dev:frontend:
+    summary: Runs the Angular dev server for wails3 dev (delegates to common:dev:frontend)
+    cmds:
+      - task: common:dev:frontend
+
+  dev:build:
+    summary: Fast dev build of the Go binary (no production frontend build; assets are proxied)
+    deps:
+      - task: dev:ensure-embed
+    cmds:
+      # Dev build: default (non-production) asset server so FRONTEND_DEVSERVER_URL is honoured
+      # and the webview proxies ng serve. No -w/-s so the binary stays debuggable; -H windowsgui
+      # only on Windows (handled by {{OS}} below). (The devtools tag only gates the WebView dev
+      # console; the asset-server dev/prod split is the `production` tag, which we never set here.)
+      - task: "dev:build:{{OS}}"
+      # Block until ng serve answers before the primary `run` launches. The Wails binary's
+      # preRun polls FRONTEND_DEVSERVER_URL only 10x500ms (~5s) then calls fatal() and exits 1;
+      # a cold Angular build takes far longer, so without this gate `run` dies before ng serve
+      # is up and the whole watcher tears down. Gating here (the blocking phase) means the
+      # server is already serving by the time preRun makes its first request.
+      - task: dev:wait-frontend
+
+  dev:wait-frontend:
+    summary: Waits until the Angular dev server answers on the wails3 dev vite port
+    internal: true
+    vars:
+      PORT: '{{.WAILS_VITE_PORT | default 4200}}'
+    cmds:
+      - cmd: |
+          url="http://127.0.0.1:{{.PORT}}/"
+          echo "waiting for ng serve at ${url} ..."
+          # ~120s budget: cold Angular build + first-run npm can be slow. ng serve answers once
+          # its first build finishes. 1s between tries. POSIX shell arithmetic (no external
+          # `seq`) so it runs under Task's built-in sh everywhere.
+          i=0
+          while [ "$i" -lt 120 ]; do
+            # NOTE: do not use `curl -o /dev/null` here. Under Task's built-in sh on Windows,
+            # /dev/null is not a valid file path, so -o fails to open it and curl errors on
+            # every try regardless of the server. A SHELL redirect to /dev/null is portable
+            # (mvdan/sh maps it to the OS null device), and -f makes a non-2xx count as
+            # not-ready rather than a false success.
+            if curl -sf --max-time 2 "${url}" >/dev/null 2>&1; then
+              echo "ng serve is up"
+              exit 0
+            fi
+            sleep 1
+            i=$((i + 1))
+          done
+          echo "ERROR: ng serve did not come up on port {{.PORT}} within 120s" >&2
+          exit 1
+
+  dev:build:windows:
+    internal: true
+    cmds:
+      - go build -tags "devtools {{.EXTRA_TAGS}}" -buildvcs=false -ldflags="-H windowsgui -X main.version={{.BUILD_VERSION}}" -o "{{.BIN_DIR}}/{{.APP_NAME}}.exe"
+    env:
+      CGO_ENABLED: '0'
+
+  dev:build:darwin:
+    internal: true
+    cmds:
+      - go build -tags "devtools {{.EXTRA_TAGS}}" -buildvcs=false -ldflags="-X main.version={{.BUILD_VERSION}}" -o "{{.BIN_DIR}}/{{.APP_NAME}}"
+    env:
+      CGO_ENABLED: '1'
+
+  dev:build:linux:
+    internal: true
+    cmds:
+      - go build -tags "devtools {{.EXTRA_TAGS}}" -buildvcs=false -ldflags="-X main.version={{.BUILD_VERSION}}" -o "{{.BIN_DIR}}/{{.APP_NAME}}"
+    env:
+      CGO_ENABLED: '0'
+
+  dev:ensure-embed:
+    summary: Guarantees frontend/dist/browser exists so the //go:embed directive compiles in dev
+    internal: true
+    # In dev the embedded bundle is never served (the webview proxies ng serve), but
+    # //go:embed all:frontend/dist/browser/* must still resolve at compile time. On a clean
+    # checkout frontend/dist is absent (gitignored), so stamp a throwaway index.html. A real
+    # `ng build` later overwrites it. status: skip the stamp when a bundle is already present.
+    status:
+      - test -f frontend/dist/browser/index.html
+    cmds:
+      - mkdir -p frontend/dist/browser
+      - cmd: 'printf "%s" "<!doctype html><title>dev</title>" > frontend/dist/browser/index.html'
 
   test:
     desc: Run Wails Go tests

@@ -11,11 +11,13 @@ info:
 dev_mode:
   root_path: .
   log_level: debug
-  debounce: 3000
+  debounce: 1000
   ignore:
     dir:
       - .git
       - node_modules
+      # The Angular GUI lives in ../gui and is served by the background ng serve
+      # process (HMR), so Go-side file watching must not react to frontend edits.
       - frontend
       - bin
     file:
@@ -26,8 +28,18 @@ dev_mode:
     watched_extension:
       - "*.go"
     git_ignore: true
+  # background runs once at startup, SURVIVES Go rebuilds, and is killed on shutdown.
+  # ng serve provides Angular HMR; the dev-tagged Go asset server reverse-proxies the
+  # webview to it via FRONTEND_DEVSERVER_URL (set by `wails3 dev`). Keeping it in
+  # `background` (not `executes`) is what makes frontend hot-reload independent of the
+  # Go rebuild loop below.
+  background:
+    cmd: wails3 task dev:frontend
   executes:
-    - cmd: wails3 task build
+    # On each watched *.go change: fast dev build (no production ng build; assets are
+    # proxied), then relaunch the binary. The binary reconnects to the already-running
+    # ng serve, so only the Go side rebuilds/reloads here.
+    - cmd: wails3 task dev:build
       type: blocking
     - cmd: wails3 task run
       type: primary

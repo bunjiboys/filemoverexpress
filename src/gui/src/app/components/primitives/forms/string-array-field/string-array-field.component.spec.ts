@@ -151,11 +151,12 @@ describe('StringArrayFieldComponent', () => {
         expect(changed).toHaveBeenCalledWith([]);
     });
 
-    it('shows the parameter name and type as the field label and hint', () => {
+    it('shows the parameter name in the mat-label and the type in the header badge', () => {
         build(arrayParam());
-        const label = fixture.nativeElement.querySelector('.fme-field-label').textContent;
+        const label = fixture.nativeElement.querySelector('mat-form-field mat-label').textContent;
         expect(label).toContain('source_dir');
-        expect(label).toContain('string_array');
+        const typeBadge = fixture.nativeElement.querySelector('.fme-field-type-badge').textContent;
+        expect(typeBadge).toContain('string_array');
     });
 
     it('marks the label required when the field is required', () => {

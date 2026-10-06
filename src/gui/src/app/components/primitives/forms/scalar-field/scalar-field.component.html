@@ -1,12 +1,6 @@
 <div class="fme-scalar-field">
     <div class="fme-field-header">
-        <span class="fme-field-label">
-            {{ parameter().name }}
-            @if (required()) {
-                <span class="fme-required-marker" aria-label="required">*</span>
-            }
-            <span class="fme-field-type">{{ parameter().type }}</span>
-        </span>
+        <span class="fme-field-type-badge">{{ parameter().type }}</span>
 
         @if (overridden()) {
             <span class="fme-override-badge">
@@ -18,6 +12,15 @@
 
     @switch (parameter().type) {
         @case ('bool') {
+            <!-- A slide toggle is not a mat-form-field, so it cannot host a <mat-label>.
+                 Render a standalone label (with the required marker) for parity with the
+                 labelled form-field controls below. -->
+            <span class="fme-field-label">
+                {{ parameter().name }}
+                @if (required()) {
+                    <span class="fme-required-marker" aria-label="required">*</span>
+                }
+            </span>
             <mat-slide-toggle class="fme-scalar-toggle"
                               [checked]="checked()"
                               (change)="onToggle($event.checked)">
@@ -26,8 +29,13 @@
         }
         @case ('enum') {
             <mat-form-field class="fme-scalar-enum" color="accent" appearance="outline" subscriptSizing="dynamic">
-                <mat-select [attr.aria-label]="parameter().name"
-                            [value]="value()"
+                <mat-label>
+                    {{ parameter().name }}
+                    @if (required()) {
+                        <span class="fme-required-marker" aria-label="required">*</span>
+                    }
+                </mat-label>
+                <mat-select [value]="value()"
                             (selectionChange)="onText($event.value)">
                     @if (!required()) {
                         <mat-option value=""></mat-option>
@@ -40,8 +48,13 @@
         }
         @case ('transfer_profile') {
             <mat-form-field class="fme-scalar-enum" color="accent" appearance="outline" subscriptSizing="dynamic">
-                <mat-select [attr.aria-label]="parameter().name"
-                            [value]="value()"
+                <mat-label>
+                    {{ parameter().name }}
+                    @if (required()) {
+                        <span class="fme-required-marker" aria-label="required">*</span>
+                    }
+                </mat-label>
+                <mat-select [value]="value()"
                             (selectionChange)="onText($event.value)">
                     @if (!required()) {
                         <mat-option value=""></mat-option>
@@ -54,24 +67,39 @@
         }
         @case ('int') {
             <mat-form-field class="fme-scalar-field-input" color="accent" appearance="outline" subscriptSizing="dynamic">
+                <mat-label>
+                    {{ parameter().name }}
+                    @if (required()) {
+                        <span class="fme-required-marker" aria-label="required">*</span>
+                    }
+                </mat-label>
                 <input matInput type="number" [step]="numberStep()"
-                       [attr.aria-label]="parameter().name"
                        [value]="value()"
                        (input)="onText($any($event.target).value)" />
             </mat-form-field>
         }
         @case ('float') {
             <mat-form-field class="fme-scalar-field-input" color="accent" appearance="outline" subscriptSizing="dynamic">
+                <mat-label>
+                    {{ parameter().name }}
+                    @if (required()) {
+                        <span class="fme-required-marker" aria-label="required">*</span>
+                    }
+                </mat-label>
                 <input matInput type="number" [step]="numberStep()"
-                       [attr.aria-label]="parameter().name"
                        [value]="value()"
                        (input)="onText($any($event.target).value)" />
             </mat-form-field>
         }
         @default {
             <mat-form-field class="fme-scalar-field-input" color="accent" appearance="outline" subscriptSizing="dynamic">
+                <mat-label>
+                    {{ parameter().name }}
+                    @if (required()) {
+                        <span class="fme-required-marker" aria-label="required">*</span>
+                    }
+                </mat-label>
                 <input matInput type="text"
-                       [attr.aria-label]="parameter().name"
                        [value]="value()"
                        (input)="onText($any($event.target).value)" />
             </mat-form-field>

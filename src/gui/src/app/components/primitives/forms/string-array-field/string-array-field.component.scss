@@ -16,21 +16,13 @@
     gap: 8px;
 }
 
-.fme-field-label {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 12px;
-    font-weight: 600;
-    color: custom-fields.$regular-text-color;
-}
-
 .fme-required-marker {
     color: variables.$red-500;
     font-weight: 700;
 }
 
-.fme-field-type {
+/* Type badge in the header (the field name now lives in the mat-label). */
+.fme-field-type-badge {
     font-size: 10px;
     font-weight: 500;
     color: custom-fields.$placeholder-text-color;
