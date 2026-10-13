@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/awslabs/filemoverexpress/events"
+	"github.com/awslabs/filemoverexpress/types/eventtypes"
 )
 
 type (
@@ -32,6 +33,10 @@ type (
 		engines  map[string]*Engine // active runs, by run id, for lifecycle operations
 		cleanups map[string]func()  // per-run JobLifecycle teardown, by run id
 		seq      uint64
+		// emit publishes a lifecycle event to the event bus so the GUI updates live. It is
+		// a field (defaulting to events.Events.Send) so tests can capture emitted events
+		// without a running bus.
+		emit func(eventtypes.Event)
 	}
 )
 
@@ -45,6 +50,7 @@ func NewWorkflowManager(store RunStore, registry Registry, maxActive int, profil
 		profileExists: profileExists,
 		engines:       make(map[string]*Engine),
 		cleanups:      make(map[string]func()),
+		emit:          events.Events.Send,
 	}
 }
 
@@ -205,7 +211,8 @@ func (m *WorkflowManager) launch(run *WorkflowRun, doc Document) {
 }
 
 // onStepStatus returns a step-transition callback that persists the step's new status onto
-// the stored run record (transition-only write).
+// the stored run record (transition-only write) and publishes a step-status-change event so
+// the GUI updates the step (and the run's progress rollup) live.
 func (m *WorkflowManager) onStepStatus(runID string) func(string, StepStatus) {
 	return func(stepID string, status StepStatus) {
 		run, err := m.store.Load(runID)
@@ -219,11 +226,19 @@ func (m *WorkflowManager) onStepStatus(runID string) func(string, StepStatus) {
 			}
 		}
 		m.persist(run)
+		m.emit(&eventtypes.WorkflowStepStatusChangeEvent{
+			RunID:  runID,
+			StepID: stepID,
+			Status: protoStepStatus(status),
+		})
 	}
 }
 
 // onRunStatus returns a run-transition callback that persists the run's new status and
-// stamps the started/completed timestamps.
+// stamps the started/completed timestamps, then publishes the matching lifecycle event:
+// a started event on the first transition to RUNNING, a complete event on a terminal
+// status, and a plain status-change event otherwise. This keeps the GUI runs table live
+// without a manual refresh.
 func (m *WorkflowManager) onRunStatus(runID string) func(RunStatus) {
 	return func(status RunStatus) {
 		run, err := m.store.Load(runID)
@@ -231,10 +246,41 @@ func (m *WorkflowManager) onRunStatus(runID string) func(RunStatus) {
 			events.Events.Warn("workflow: loading run %s for run transition: %s", runID, err)
 			return
 		}
+		firstRunning := status == RunRunning && run.Started.IsZero()
 		run.Status = status
 		stampRunTimestamps(run, status)
 		m.persist(run)
+		if firstRunning {
+			// First transition to RUNNING: announce the run so an unseen row appears live.
+			m.emit(&eventtypes.WorkflowRunStartedEvent{
+				RunID:   run.RunID,
+				Name:    run.Name,
+				Started: run.Started,
+				Steps:   protoSteps(run.Steps),
+			})
+			return
+		}
+		m.emitRunStatus(run, status)
 	}
+}
+
+// emitRunStatus publishes a complete event for a terminal status (carrying the completion
+// timestamp) or a status-change event for a non-terminal transition (e.g. RUNNING ->
+// PAUSED, PAUSED -> RUNNING). The first-RUNNING case is handled by its caller.
+func (m *WorkflowManager) emitRunStatus(run *WorkflowRun, status RunStatus) {
+	if status.Terminal() {
+		m.emit(&eventtypes.WorkflowRunCompleteEvent{
+			RunID:     run.RunID,
+			Name:      run.Name,
+			Status:    protoRunStatus(status),
+			Completed: run.Completed,
+		})
+		return
+	}
+	m.emit(&eventtypes.WorkflowRunStatusChangeEvent{
+		RunID:  run.RunID,
+		Status: protoRunStatus(status),
+	})
 }
 
 // finish removes the run from the active-engines map and tears down its job-lifecycle

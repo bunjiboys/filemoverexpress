@@ -1,14 +1,19 @@
 <h2 mat-dialog-title class="fme-runner-title">
-    <span>Run a workflow</span>
+    <span>Run Workflow</span>
     <button mat-icon-button aria-label="Close" mat-dialog-close class="fme-runner-close">
         <mat-icon>close</mat-icon>
     </button>
 </h2>
 
-<div mat-dialog-content class="fme-workflow-runner">
-    <div class="fme-runner-toolbar">
-        <button type="button" mat-flat-button color="primary" class="fme-open-workflow" (click)="openWorkflow()">Open workflow file...</button>
-    </div>
+<div mat-dialog-content class="fme-workflow-runner" [class.is-empty]="!document() && documentErrors().length === 0">
+    @if (document() || documentErrors().length > 0) {
+        <div class="fme-runner-toolbar">
+            <button type="button" mat-flat-button color="primary" class="fme-open-workflow" (click)="openWorkflow()">
+                <mat-icon>folder_open</mat-icon>
+                Open workflow file...
+            </button>
+        </div>
+    }
 
     @if (documentErrors().length > 0) {
         <ul class="fme-runner-doc-error" role="alert">
@@ -38,6 +43,17 @@
             (browseRequested)="onBrowse($event)">
         </fme-workflow-runner-wizard>
     } @else if (documentErrors().length === 0) {
-        <p class="fme-runner-empty">Open an externally-authored workflow file to run it.</p>
+        <div class="fme-runner-empty-state">
+            <mat-icon class="fme-runner-empty-icon">account_tree</mat-icon>
+            <h3 class="fme-runner-empty-title">Run a workflow</h3>
+            <p class="fme-runner-empty-text">
+                Open an externally-authored workflow file (YAML or JSON) to fill in its
+                parameters and run it.
+            </p>
+            <button type="button" mat-flat-button color="primary" class="fme-open-workflow" (click)="openWorkflow()">
+                <mat-icon>folder_open</mat-icon>
+                Open workflow file...
+            </button>
+        </div>
     }
 </div>

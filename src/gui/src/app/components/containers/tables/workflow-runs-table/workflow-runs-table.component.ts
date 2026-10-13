@@ -1,7 +1,7 @@
 import { DatePipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, DestroyRef, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, DestroyRef, inject, output, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { MatIconButton } from '@angular/material/button';
+import { MatButton, MatIconButton } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
 import { MatIcon } from '@angular/material/icon';
 import { MatDivider } from '@angular/material/list';
@@ -89,6 +89,7 @@ const TERMINAL_RUN_STATES: readonly WorkflowRunStatus[] = [
         MatRowDef,
         MatIcon,
         MatIconButton,
+        MatButton,
         MatMenu,
         MatMenuContent,
         MatMenuItem,
@@ -112,6 +113,9 @@ export class WorkflowRunsTableComponent {
     /** Expose the status enums to the template for terminal/visibility checks. */
     readonly RunStatus = WorkflowRunStatus;
     readonly StepStatus = WorkflowStepStatus;
+
+    /** Emitted when the toolbar's start-workflow button is pressed; the host opens the runner. */
+    readonly startWorkflow = output<void>();
 
     /** All known runs, keyed by run id, kept live from the lifecycle events. */
     private readonly runsById = signal<Map<string, WorkflowRun>>(new Map());
@@ -333,8 +337,9 @@ export class WorkflowRunsTableComponent {
     }
 
     /**
-     * A run started: insert a shell row if unseen (its steps fill in from subsequent step
-     * events and the next refresh), otherwise mark it RUNNING.
+     * A run started: insert a shell row if unseen (seeded with the run's steps carried on
+     * the event, so the row is complete without a manual refresh), otherwise mark it
+     * RUNNING.
      */
     private onRunStarted(evt: WorkflowRunStartedEvent): void {
         const existing = this.runsById().get(evt.runId);
@@ -347,7 +352,7 @@ export class WorkflowRunsTableComponent {
             runId: evt.runId,
             name: evt.name,
             status: WorkflowRunStatus.RUNNING,
-            steps: [],
+            steps: evt.steps,
             started: dateToTimestamp(evt.started),
         });
     }

@@ -8,6 +8,9 @@
                 <mat-tab label="Jobs">
                     <fme-jobs-table></fme-jobs-table>
                 </mat-tab>
+                <mat-tab label="Workflows">
+                    <fme-workflow-runs-table (startWorkflow)="startWorkflow()"></fme-workflow-runs-table>
+                </mat-tab>
                 <mat-tab label="Logs">
                     <fme-logs-table></fme-logs-table>
                 </mat-tab>

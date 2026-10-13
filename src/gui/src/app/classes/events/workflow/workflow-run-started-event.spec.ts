@@ -3,7 +3,7 @@ import { WorkflowRunStartedEvent } from './workflow-run-started-event';
 import { create } from '@bufbuild/protobuf';
 import { timestampFromDate } from '@bufbuild/protobuf/wkt';
 import { ListEventsResponseSchema } from '@gen/es/fme/v1/fme_service_pb';
-import { WorkflowRunStartedEventSchema } from '@gen/es/fme/v1/workflow_pb';
+import { WorkflowRunStartedEventSchema, WorkflowStepSchema } from '@gen/es/fme/v1/workflow_pb';
 import { EventType } from '@gen/es/fme/v1/events_pb';
 
 const data = {
@@ -25,6 +25,7 @@ describe('WorkflowRunStartedEvent', () => {
         evt.runId = data.runId;
         evt.name = data.name;
         evt.started = timestampFromDate(data.started);
+        evt.steps = [create(WorkflowStepSchema, {stepId: 's1', name: 'copy', type: 'Upload'})];
 
         pbEvt.eventType = EventType.WORKFLOW_RUN_STARTED_EVENT_TYPE;
         pbEvt.event = {case: 'workflowRunStartedEvent', value: evt};
@@ -33,6 +34,8 @@ describe('WorkflowRunStartedEvent', () => {
         expect(result.runId).toBe(data.runId);
         expect(result.name).toBe(data.name);
         expect(result.started.getTime()).toBe(data.started.getTime());
+        expect(result.steps).toHaveLength(1);
+        expect(result.steps[0].stepId).toBe('s1');
     });
 
     it('should default started to now when the timestamp is absent', () => {

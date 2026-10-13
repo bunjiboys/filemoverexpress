@@ -32,6 +32,11 @@ const (
 	JobCreateEventType
 	JobChecksumProgressEventType
 	TransferStatsEventType
+
+	WorkflowRunStartedEventType
+	WorkflowRunStatusChangeEventType
+	WorkflowStepStatusChangeEventType
+	WorkflowRunCompleteEventType
 )
 
 //nolint:decorder
@@ -50,6 +55,11 @@ const (
 	TaskCompleteEventPriority
 	JobChecksumProgressEventPriority
 	TransferStatsEventPriority
+
+	WorkflowRunStartedEventPriority
+	WorkflowRunStatusChangeEventPriority
+	WorkflowStepStatusChangeEventPriority
+	WorkflowRunCompleteEventPriority
 )
 
 type (

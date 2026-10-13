@@ -1,13 +1,21 @@
 import { Component, DestroyRef, inject, signal, ChangeDetectionStrategy } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { MatTab, MatTabGroup } from '@angular/material/tabs';
+import { MatDialog } from '@angular/material/dialog';
 import { Store } from '@ngrx/store';
+import { map } from 'rxjs';
 import { JobsTableComponent } from '@containers/tables/jobs-table/jobs-table.component';
 import { LogsTableComponent } from '@containers/tables/logs-table/logs-table.component';
 import { ReportsTableComponent } from '@containers/tables/reports-table/reports-table.component';
+import {
+    WorkflowRunsTableComponent,
+} from '@containers/tables/workflow-runs-table/workflow-runs-table.component';
+import { WorkflowRunnerComponent } from '@app/components/layout/workflow-runner/workflow-runner.component';
 import { TrayStateService } from '@services/tray-state/tray-state.service';
 import { BucketReportService } from '@services/bucket-report/bucket-report.service';
 import { selectAll as jobSelectAll } from '@state/job/job.selectors';
+import { selectConnectionState } from '@state/fme-client/fme-client.selectors';
+import { ConnectionState } from '@state/models/connection-state-model';
 import { PROGRESS_STATES } from '@state/models/job.model';
 import { TransferDirection } from '@app/interfaces/jobs-table';
 import { formatBytes } from '@app/utils/utils';
@@ -23,13 +31,21 @@ import { formatBytes } from '@app/utils/utils';
         JobsTableComponent,
         LogsTableComponent,
         ReportsTableComponent,
+        WorkflowRunsTableComponent,
     ],
 })
 export class TableGroupComponent {
     protected tray = inject(TrayStateService);
     private store = inject(Store);
     private bucketReport = inject(BucketReportService);
+    private dialog = inject(MatDialog);
     private destroyRef = inject(DestroyRef);
+
+    /** True while the daemon is connected; gates the Start-new-workflow button. */
+    protected connected = toSignal(
+        this.store.select(selectConnectionState).pipe(map((state) => state === ConnectionState.CONNECTED)),
+        {initialValue: false},
+    );
 
     /** Number of in-progress transfers, for the collapsed summary bar. */
     activeJobs = signal(0);
@@ -90,6 +106,25 @@ export class TableGroupComponent {
             this.summaryTransferred.set(formatBytes(transferred, 1, 1000));
             this.summaryTotal.set(formatBytes(totalBytes, 1, 1000));
             this.summaryEta.set(this.formatEta(combinedBps > 0 ? remaining / combinedBps : Number.POSITIVE_INFINITY));
+        });
+    }
+
+    /**
+     * Open the workflow runner modal to start a new run (open file -> fill params -> submit).
+     * Mirrors the dialog config the toolbar used before the runs table moved into this tray;
+     * gated on a live daemon connection like the toolbar entry was.
+     */
+    protected startWorkflow(): void {
+        if (!this.connected()) {
+            return;
+        }
+        this.dialog.open(WorkflowRunnerComponent, {
+            width: '70%',
+            maxWidth: '960px',
+            minHeight: '50vh',
+            maxHeight: '85%',
+            autoFocus: 'dialog',
+            panelClass: 'settings-dialog',
         });
     }
 

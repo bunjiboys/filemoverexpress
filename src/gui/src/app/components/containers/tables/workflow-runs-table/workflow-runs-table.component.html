@@ -1,14 +1,19 @@
 <div class="runs-table-wrapper">
     <div class="runs-toolbar">
         <span class="runs-title">Workflow runs</span>
+        <button mat-icon-button class="runs-start-btn" matTooltip="Start new workflow"
+                aria-label="Start new workflow" (click)="startWorkflow.emit()">
+            <mat-icon>add</mat-icon>
+        </button>
         <button mat-icon-button class="runs-refresh-btn" matTooltip="Refresh"
                 aria-label="Refresh runs" (click)="refresh()">
             <mat-icon>refresh</mat-icon>
         </button>
     </div>
 
-    <div class="runs-container">
-        <table mat-table [dataSource]="runs()" multiTemplateDataRows>
+    <div class="runs-container" [class.is-empty]="runs().length === 0">
+        @if (runs().length > 0) {
+            <table mat-table [dataSource]="runs()" multiTemplateDataRows>
             <!-- Expand chevron: toggles the per-run steps panel. -->
             <ng-container matColumnDef="expand">
                 <th mat-header-cell *matHeaderCellDef></th>
@@ -107,9 +112,18 @@
             <tr mat-row *matRowDef="let row; columns: displayedColumns;" class="run-row"></tr>
             <tr mat-row *matRowDef="let row; columns: ['detail'];" class="run-detail-row"></tr>
         </table>
-
-        @if (runs().length === 0) {
-            <p class="runs-empty">No workflow runs yet. Run a workflow to see it here.</p>
+        } @else {
+            <div class="runs-empty-state">
+                <mat-icon class="runs-empty-icon">account_tree</mat-icon>
+                <h3 class="runs-empty-title">No workflow runs yet</h3>
+                <p class="runs-empty-text">
+                    Start a workflow to run it and track its progress here.
+                </p>
+                <button mat-stroked-button type="button" class="runs-empty-btn" (click)="startWorkflow.emit()">
+                    <mat-icon>add</mat-icon>
+                    Start new workflow
+                </button>
+            </div>
         }
     </div>
 </div>

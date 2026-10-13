@@ -174,11 +174,12 @@ describe('WorkflowRunsTableComponent', () => {
             connectionState$.next(ConnectionState.CONNECTED);
         });
 
-        it('inserts a shell run on a started event for an unseen run', () => {
-            events$.next(new WorkflowRunStartedEvent('run-2', 'adhoc', new Date()));
+        it('seeds a run row with the started event steps for an unseen run', () => {
+            const steps = [step({stepId: 's1', name: 'copy'}), step({stepId: 's2', name: 'checksum'})];
+            events$.next(new WorkflowRunStartedEvent('run-2', 'adhoc', new Date(), steps));
             const r = component.runs().find((x) => x.runId === 'run-2');
             expect(r?.status).toBe(WorkflowRunStatus.RUNNING);
-            expect(r?.steps).toEqual([]);
+            expect(r?.steps.map((s) => s.stepId)).toEqual(['s1', 's2']);
         });
 
         it('marks an already-known run RUNNING on a started event', () => {
@@ -489,6 +490,36 @@ describe('WorkflowRunsTableComponent', () => {
             fmeClient.listWorkflowRuns.mockReturnValueOnce(of({runs: [run({runId: 'only'})]}));
             component.refresh();
             expect(component.runs().map((r) => r.runId)).toEqual(['only']);
+        });
+    });
+
+    describe('startWorkflow output', () => {
+        it('emits when the toolbar start button is clicked', () => {
+            const emitted: boolean[] = [];
+            component.startWorkflow.subscribe(() => emitted.push(true));
+            const btn = fixture.nativeElement.querySelector('.runs-start-btn') as HTMLButtonElement;
+            btn.click();
+            expect(emitted).toEqual([true]);
+        });
+
+        it('shows the empty-state card when there are no runs and its button emits', () => {
+            // No runs seeded, so the empty-state card renders instead of the table.
+            const emptyState = fixture.nativeElement.querySelector('.runs-empty-state');
+            expect(emptyState).toBeTruthy();
+
+            const emitted: boolean[] = [];
+            component.startWorkflow.subscribe(() => emitted.push(true));
+            const btn = fixture.nativeElement.querySelector('.runs-empty-btn') as HTMLButtonElement;
+            btn.click();
+            expect(emitted).toEqual([true]);
+        });
+
+        it('hides the empty-state card once a run exists', () => {
+            fmeClient.listWorkflowRuns.mockReturnValueOnce(of({runs: [run({runId: 'r1'})]}));
+            component.refresh();
+            fixture.detectChanges();
+            expect(fixture.nativeElement.querySelector('.runs-empty-state')).toBeNull();
+            expect(fixture.nativeElement.querySelector('table')).toBeTruthy();
         });
     });
 });

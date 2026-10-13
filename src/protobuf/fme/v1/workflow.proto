@@ -269,11 +269,14 @@ message DeleteWorkflowRunResponse {
 // These are run-level STATE TRANSITIONS, not progress ticks. Byte progress continues to
 // ride JobProgressEvent tagged with workflow_run_id / workflow_step_id.
 
-// A run was accepted and scheduling began.
+// A run was accepted and scheduling began. Carries the run's steps (all PENDING at this
+// point) so the GUI can render the complete run row immediately, without a follow-up list;
+// subsequent WorkflowStepStatusChangeEvents patch these steps' statuses.
 message WorkflowRunStartedEvent {
     string run_id = 1;
     string name = 2;
     google.protobuf.Timestamp started = 3;
+    repeated WorkflowStep steps = 4;
 }
 
 // A run's overall status changed (e.g. RUNNING->PAUSED, ->CANCELLED, ->terminal).

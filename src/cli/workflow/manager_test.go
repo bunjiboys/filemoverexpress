@@ -5,6 +5,9 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/awslabs/filemoverexpress/types/eventtypes"
+	fmev1 "github.com/awslabs/filemoverexpress/types/pbtypes/fme/v1"
 )
 
 // singleGatedYAML is a one-step workflow (no parameters) whose step id is "sleep-step", so
@@ -561,3 +564,143 @@ func (*saveAlwaysFails) Save(*WorkflowRun) error                { return errNotF
 func (s *saveAlwaysFails) Load(id string) (*WorkflowRun, error) { return s.inner.Load(id) }
 func (s *saveAlwaysFails) List() ([]*WorkflowRun, error)        { return s.inner.List() }
 func (s *saveAlwaysFails) Delete(id string) error               { return s.inner.Delete(id) }
+
+
+
+// eventSink captures emitted lifecycle events for assertions.
+type eventSink struct {
+	mu     sync.Mutex
+	events []eventtypes.Event
+}
+
+func (s *eventSink) emit(e eventtypes.Event) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.events = append(s.events, e)
+}
+
+func (s *eventSink) snapshot() []eventtypes.Event {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := make([]eventtypes.Event, len(s.events))
+	copy(out, s.events)
+	return out
+}
+
+// TestWorkflowManagerEmitsLifecycleEvents proves a run publishes the live-update events the
+// GUI runs table consumes: a started event, a step-status-change event per step, and a
+// terminal complete event. Without these the table only updates on a manual refresh.
+func TestWorkflowManagerEmitsLifecycleEvents(t *testing.T) {
+	store := newMemStore()
+	mgr := managerFor(store)
+	sink := &eventSink{}
+	mgr.emit = sink.emit
+
+	runID, verrs, err := mgr.Start([]byte(validRunYAML), FormatYAML, ScalarInputs(map[string]string{"day": "15"}))
+	if err != nil || len(verrs) != 0 {
+		t.Fatalf("Start err=%v verrs=%v", err, verrs)
+	}
+
+	waitFor(t, func() bool {
+		r, loadErr := store.Load(runID)
+		return loadErr == nil && r.Status.Terminal()
+	}, "run reaches terminal status")
+
+	var started, complete int
+	stepChanges := map[string]bool{}
+	startedSteps := 0
+	for _, e := range sink.snapshot() {
+		switch ev := e.(type) {
+		case *eventtypes.WorkflowRunStartedEvent:
+			if ev.RunID == runID {
+				started++
+				startedSteps = len(ev.Steps)
+			}
+		case *eventtypes.WorkflowRunCompleteEvent:
+			if ev.RunID == runID {
+				complete++
+			}
+		case *eventtypes.WorkflowStepStatusChangeEvent:
+			if ev.RunID == runID {
+				stepChanges[ev.StepID] = true
+			}
+		}
+	}
+
+	if started != 1 {
+		t.Errorf("started events = %d, want 1", started)
+	}
+	if startedSteps != 2 {
+		t.Errorf("started event carried %d steps, want 2 (a and b)", startedSteps)
+	}
+	if complete != 1 {
+		t.Errorf("complete events = %d, want 1", complete)
+	}
+	if !stepChanges["a"] || !stepChanges["b"] {
+		t.Errorf("step-status-change events missing; got steps %v, want a and b", stepChanges)
+	}
+}
+
+
+
+// TestProtoStatusConverters exercises every enum branch of the domain-to-proto converters,
+// including the defensive default for an unknown value.
+func TestProtoStatusConverters(t *testing.T) {
+	runCases := map[RunStatus]fmev1.WorkflowRunStatus{
+		RunPending:                 fmev1.WorkflowRunStatus_WORKFLOW_RUN_STATUS_PENDING,
+		RunRunning:                 fmev1.WorkflowRunStatus_WORKFLOW_RUN_STATUS_RUNNING,
+		RunPaused:                  fmev1.WorkflowRunStatus_WORKFLOW_RUN_STATUS_PAUSED,
+		RunSucceeded:               fmev1.WorkflowRunStatus_WORKFLOW_RUN_STATUS_SUCCEEDED,
+		RunFailed:                  fmev1.WorkflowRunStatus_WORKFLOW_RUN_STATUS_FAILED,
+		RunCancelled:               fmev1.WorkflowRunStatus_WORKFLOW_RUN_STATUS_CANCELLED,
+		RunStatus("bogus-unknown"): fmev1.WorkflowRunStatus_WORKFLOW_RUN_STATUS_UNSPECIFIED,
+	}
+	for in, want := range runCases {
+		if got := protoRunStatus(in); got != want {
+			t.Errorf("protoRunStatus(%q) = %v, want %v", in, got, want)
+		}
+	}
+
+	stepCases := map[StepStatus]fmev1.WorkflowStepStatus{
+		StepPending:                 fmev1.WorkflowStepStatus_WORKFLOW_STEP_STATUS_PENDING,
+		StepRunning:                 fmev1.WorkflowStepStatus_WORKFLOW_STEP_STATUS_RUNNING,
+		StepSucceeded:               fmev1.WorkflowStepStatus_WORKFLOW_STEP_STATUS_SUCCEEDED,
+		StepFailed:                  fmev1.WorkflowStepStatus_WORKFLOW_STEP_STATUS_FAILED,
+		StepSkipped:                 fmev1.WorkflowStepStatus_WORKFLOW_STEP_STATUS_SKIPPED,
+		StepStatus("bogus-unknown"): fmev1.WorkflowStepStatus_WORKFLOW_STEP_STATUS_UNSPECIFIED,
+	}
+	for in, want := range stepCases {
+		if got := protoStepStatus(in); got != want {
+			t.Errorf("protoStepStatus(%q) = %v, want %v", in, got, want)
+		}
+	}
+}
+
+// TestEmitRunStatusNonTerminalEmitsStatusChange covers the status-change branch of
+// emitRunStatus: a non-terminal transition on an already-started run (e.g. RUNNING ->
+// PAUSED) publishes a WorkflowRunStatusChangeEvent, not a started or complete event.
+func TestEmitRunStatusNonTerminalEmitsStatusChange(t *testing.T) {
+	store := newMemStore()
+	mgr := managerFor(store)
+	sink := &eventSink{}
+	mgr.emit = sink.emit
+
+	// A run that has already started (non-zero Started), so onRunStatus does not treat
+	// RUNNING as the first-RUNNING case and emitRunStatus handles the transition.
+	run := &WorkflowRun{RunID: "r1", Name: "n", Status: RunRunning, Started: time.Unix(1, 0)}
+	_ = store.Save(run)
+
+	mgr.onRunStatus("r1")(RunPaused)
+
+	events := sink.snapshot()
+	if len(events) != 1 {
+		t.Fatalf("emitted %d events, want 1", len(events))
+	}
+	sc, ok := events[0].(*eventtypes.WorkflowRunStatusChangeEvent)
+	if !ok {
+		t.Fatalf("event type = %T, want *WorkflowRunStatusChangeEvent", events[0])
+	}
+	if sc.Status != fmev1.WorkflowRunStatus_WORKFLOW_RUN_STATUS_PAUSED {
+		t.Errorf("status = %v, want PAUSED", sc.Status)
+	}
+}

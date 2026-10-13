@@ -4,12 +4,13 @@ import { PreferencesService } from '@services/preferences/preferences.service';
 /** Tab order of the expanded tray, matching the template's <mat-tab> order. */
 export enum TrayTab {
     Jobs = 0,
-    Logs = 1,
-    Reports = 2
+    Workflows = 1,
+    Logs = 2,
+    Reports = 3
 }
 
 /**
- * Shared UI state for the bottom transfer tray (Jobs / Logs / Bucket Reports).
+ * Shared UI state for the bottom transfer tray (Jobs / Workflows / Logs / Bucket Reports).
  *
  * The tray opens COLLAPSED to a slim summary bar (matching the redesign mockup) and can be
  * expanded/collapsed by the user regardless of whether transfers are active. The layout

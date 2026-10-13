@@ -25,8 +25,16 @@
         font-weight: 600;
     }
 
-    .runs-refresh-btn {
+    .runs-start-btn {
         margin-left: auto;
+        color: variables.$grey-500;
+
+        &:hover {
+            color: variables.$grey-100;
+        }
+    }
+
+    .runs-refresh-btn {
         color: variables.$grey-500;
 
         &:hover {
@@ -40,6 +48,13 @@
 
     flex: 1;
     min-height: 0;
+
+    // Pre-run state: center the empty-state card in the container instead of the table.
+    &.is-empty {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
 
     table.mat-mdc-table {
         table-layout: fixed;
@@ -266,8 +281,42 @@ tr.run-row:hover .run-row-menu-btn {
 }
 // endregion
 
-.runs-empty {
-    margin: 12px 0 0;
-    font-size: 12px;
-    color: variables.$grey-500;
+.runs-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 12px;
+    max-width: 320px;
+    padding: 24px;
+
+    .runs-empty-icon {
+        font-size: 44px;
+        width: 44px;
+        height: 44px;
+        color: variables.$grey-500;
+        opacity: 0.7;
+    }
+
+    .runs-empty-title {
+        margin: 0;
+        font-family: fonts.$font-family;
+        font-size: 15px;
+        font-weight: 600;
+        color: variables.$text;
+    }
+
+    .runs-empty-text {
+        margin: 0;
+        font-size: 13px;
+        line-height: 1.5;
+        color: variables.$grey-500;
+    }
+
+    .runs-empty-btn mat-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+        margin-right: 4px;
+    }
 }
